@@ -7,6 +7,7 @@
 #include <limits>
 #include <algorithm>
 #include <unordered_set>
+#include <memory>
 
 #include "project_env.h"
 
@@ -20,22 +21,23 @@ void VulkanContext::initVulkan(WindowContext* const &window_context) {
     VKInit_initWindowSurface();
     VKInit_initPhysicalDevice();
     VKInit_initLogicalDevice();
+    
     VKInit_initSwapChain();
-    VKInit_screenRenderPass();
     VKInit_initSwapChainBuffers();
 
     VulkanRendererDependencies dependencies{};
-    dependencies.graphics_queue = &this->vk_graphics_queue.queue;
-    dependencies.framebuffers = &this->vk_screen_framebuffers;
-    dependencies.extent = &this->vk_swapchain_extent;
-    dependencies.render_pass = &this->vk_screen_render_pass;
+    dependencies.graphics_queue = this->vk_graphics_queue.queue;
+    dependencies.image_views = this->vk_swapchain_image_views;
+    dependencies.extent = this->vk_swapchain_extent;
+    dependencies.framebuffer_format = this->vk_swapchain_image_format;
 
     VulkanRendererCreateInfo info{};
-    info.max_queue_frame = MAX_QUEUED_FRAME;
     info.device = this->vk_device;
     info.queue_family_index = this->vk_graphics_queue.queueFamilyIndex;
     info.dependencies = dependencies;
     this->vk_screen_renderer.initVulkanRenderer(&info);
+
+    this->vk_graphics_pipeline_buffer = std::make_unique<VulkanPipelineBuffer>(this->vk_screen_renderer.getRenderPass());
 }
 
 void VulkanContext::VKInit_initInstance() {
@@ -188,7 +190,6 @@ void VulkanContext::VKInit_initSwapChain() {
 
 void VulkanContext::VKInit_initSwapChainBuffers() {
     this->vk_swapchain_image_views.resize(this->vk_swapchain_images.size());
-    this->vk_screen_framebuffers.resize(this->vk_swapchain_images.size());
     size_t i = 0;
     VkResult rslt;
     for(auto &vk_image : this->vk_swapchain_images) {
@@ -208,20 +209,6 @@ void VulkanContext::VKInit_initSwapChainBuffers() {
         img_view_create_info.subresourceRange.baseArrayLayer = 0;
         if((rslt = vkCreateImageView(this->vk_device, &img_view_create_info, nullptr, &this->vk_swapchain_image_views[i])) != VK_SUCCESS) {
             throw std::runtime_error("vkCreateImageView() failed, err: " + std::string(string_VkResult(rslt)));
-        }
-
-        VkImageView* img_view_ref = &this->vk_swapchain_image_views[i];
-        VkFramebufferCreateInfo framebuffers_create_info{};
-        framebuffers_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-        framebuffers_create_info.width = this->vk_swapchain_extent.width;
-        framebuffers_create_info.height = this->vk_swapchain_extent.height;
-        framebuffers_create_info.layers = 1;
-        framebuffers_create_info.attachmentCount = 1;
-        framebuffers_create_info.pAttachments = img_view_ref;
-        framebuffers_create_info.renderPass = this->vk_screen_render_pass;
-        VkResult rslt = vkCreateFramebuffer(this->vk_device, &framebuffers_create_info, nullptr, &this->vk_screen_framebuffers[i]);
-        if(rslt != VK_SUCCESS) {
-            throw std::runtime_error("vkCreateFramebuffer() failed, err: + " + std::string(string_VkResult(rslt)));
         }
         ++i;
     }
@@ -412,50 +399,6 @@ VkExtent2D VulkanContext::selectSwapChainExtent(const VkSurfaceCapabilitiesKHR &
     return actual_extent;
 }
 
-void VulkanContext::VKInit_screenRenderPass() {
-    VkAttachmentDescription color_attachment{};
-    color_attachment.format = this->vk_swapchain_image_format;
-    color_attachment.samples = VK_SAMPLE_COUNT_1_BIT;
-    color_attachment.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    color_attachment.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    color_attachment.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    color_attachment.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    color_attachment.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    color_attachment.finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
-
-    VkAttachmentReference color_attachment_ref{};
-    color_attachment_ref.attachment = 0;
-    color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
-
-    VkSubpassDescription subpass{};
-    subpass.colorAttachmentCount = 1;
-    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    subpass.pColorAttachments = &color_attachment_ref;
-
-    VkSubpassDependency subpass_dep{};
-    subpass_dep.srcSubpass = VK_SUBPASS_EXTERNAL;
-    subpass_dep.dstSubpass = 0;
-
-    subpass_dep.srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    subpass_dep.srcAccessMask = 0;
-
-    subpass_dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    subpass_dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-
-    VkRenderPassCreateInfo render_pass_info{};
-    render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
-    render_pass_info.attachmentCount = 1;
-    render_pass_info.pAttachments = &color_attachment;
-    render_pass_info.subpassCount = 1;
-    render_pass_info.pSubpasses = &subpass;
-    render_pass_info.dependencyCount = 1;
-    render_pass_info.pDependencies = &subpass_dep;
-    VkResult rslt = vkCreateRenderPass(this->vk_device, &render_pass_info, nullptr, &this->vk_screen_render_pass);
-    if (rslt != VK_SUCCESS) {
-        throw std::runtime_error("vkCreateRenderPass failed, err: " + std::string(string_VkResult(rslt)));
-    }
-}
-
 VkResult VulkanContext::acquireSwapChainImageIndex(uint32_t &index, VkSemaphore semaphore_lock) {
     return vkAcquireNextImageKHR(this->vk_device, this->vk_swapchain, UINT64_MAX, semaphore_lock, VK_NULL_HANDLE, &index);
 }
@@ -491,23 +434,24 @@ void VulkanContext::queueNextFrame() {
 
 void VulkanContext::VKReload_swapChain() {
     vkDeviceWaitIdle(this->vk_device);
+    this->vk_screen_renderer.invalidateFramebuffer();
+    this->vk_screen_renderer.cleanup_framebuffers(this->vk_device);
     cleanup_swapChain();
 
     VKInit_initSwapChain();
     VKInit_initSwapChainBuffers();
 
     VulkanRendererDependencies dependencies{};
-    dependencies.graphics_queue = &this->vk_graphics_queue.queue;
-    dependencies.framebuffers = &this->vk_screen_framebuffers;
-    dependencies.extent = &this->vk_swapchain_extent;
-    dependencies.render_pass = &this->vk_screen_render_pass;
+    dependencies.graphics_queue = this->vk_graphics_queue.queue;
+    dependencies.image_views = this->vk_swapchain_image_views;
+    dependencies.framebuffer_format = this->vk_swapchain_image_format;
+    dependencies.extent = this->vk_swapchain_extent;
     this->vk_screen_renderer.reloadDependencies(dependencies);
+    this->vk_screen_renderer.reloadFramebuffers(this->vk_device);
+    this->vk_screen_renderer.validateFramebuffer();
 }
 
 void VulkanContext::cleanup_swapChain() {
-    for(auto &fb : this->vk_screen_framebuffers) {
-        vkDestroyFramebuffer(this->vk_device, fb, nullptr);
-    }
     for(auto &img_view : this->vk_swapchain_image_views) {
         vkDestroyImageView(this->vk_device, img_view, nullptr);
     }
@@ -517,6 +461,7 @@ void VulkanContext::cleanup_swapChain() {
 void VulkanContext::cleanup() {
     vkDeviceWaitIdle(this->vk_device); // waiting for every last thing to finish first
     cleanup_swapChain();
+    (*this->vk_graphics_pipeline_buffer).cleanup(this->vk_device);
     this->vk_screen_renderer.cleanup(this->vk_device);
 
     vkDestroySurfaceKHR(this->vk_instance, this->vk_surface, nullptr);

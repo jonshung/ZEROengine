@@ -29,6 +29,7 @@ PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/SDLWindowContext.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanContext.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanRenderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanPipelineBuffer.cpp
 )
 
 target_include_directories(${TARGET_MAIN} 

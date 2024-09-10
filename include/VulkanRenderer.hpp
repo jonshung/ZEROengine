@@ -9,35 +9,58 @@
 #include <functional>
 
 #include "VulkanRenderer_def.hpp"
-
-// debug dynamic viewport state
-const std::vector<VkDynamicState> dynamic_states = {
-    VK_DYNAMIC_STATE_VIEWPORT,
-    VK_DYNAMIC_STATE_SCISSOR
-};
+#include "VulkanPipelineBuffer.hpp"
 
 class VulkanRenderer {
+private:
+    VulkanRendererSettings settings;
+    bool framebuffer_validation = true;
+
 // initialization and cleanup procedures
 public:
     void initVulkanRenderer(const VulkanRendererCreateInfo *info);
     
     void cleanup_concurrency_locks(VkDevice device);
     void cleanup_commandBuffers(VkDevice device);
-    void cleanup_pipelines(VkDevice device);
+    void cleanup_framebuffers(VkDevice device);
     void cleanup(VkDevice device);
 
 // public synchronization api for application draw call
 public:
     void setVerticesBuffer();
-    void reloadDependencies(VulkanRendererDependencies new_reference);
-    VkFence getPresentationLock(uint32_t frame_index);
-    VkSemaphore getImageLock(uint32_t frame_index);
-    VkSemaphore getRenderingLock(uint32_t frame_index);
+    void reloadDependencies(VulkanRendererDependencies _dependencies) {
+        this->dependencies = _dependencies;
+    }
+    void reloadSettings(VulkanRendererSettings _settings) {
+        this->settings = _settings;
+    }
+    void reloadRenderPass(VkDevice device);
+    void reloadFramebuffers(VkDevice device);
+    void validateFramebuffer() {
+        this->framebuffer_validation = true;
+    }
+    void invalidateFramebuffer() {
+        this->framebuffer_validation = false;
+    }
 
-    void recordRenderCommandBuffer(const uint32_t &frame_cmd_buffer_index, uint32_t image_index);
+    VkFence getPresentationLock(uint32_t frame_index) {
+        return this->vk_presentation_mutex[frame_index];
+    }
+    VkSemaphore getImageLock(uint32_t frame_index) {
+        return this->vk_image_mutex[frame_index];
+    }
+    VkSemaphore getRenderingLock(uint32_t frame_index) {
+        return this->vk_rendering_mutex[frame_index];
+    }
+    VkRenderPass getRenderPass() {
+        return this->vk_render_pass;
+    }
+
+    void beginRenderPassCommandBuffer(const uint32_t &frame_cmd_buffer_index, uint32_t image_index);
+    void recordPipelineRenderCommandBuffer(const uint32_t &frame_cmd_buffer_index, VkPipeline pipeline);
+    void endRenderPassCommandBuffer(const uint32_t &frame_cmd_buffer_index);
     void resetRenderCommandBuffer(const uint32_t &frame_cmd_buffer_index);
     void submitRenderCommandBuffer(const uint32_t &frame_cmd_buffer_index);
-    void createGraphicsPipelines(VkDevice device, std::vector<ShaderData> shaders);
 
 // command pool and buffers
 private:
@@ -55,19 +78,11 @@ private:
     std::vector<VkSemaphore> vk_rendering_mutex;
     std::vector<VkFence> vk_presentation_mutex; // waiting for previous frame
 
-    VkQueue vk_graphics_queue;
-
-// framebuffers
 private:
-    VkShaderModule createShaderModule(VkDevice device, const char* data, const size_t &data_size);
-
-private:
-    VkPipelineLayout vk_pipeline_layout;
-    std::vector<VkPipeline> vk_graphics_pipelines;
-
-    std::vector<VkFramebuffer> *vk_framebuffers;
     VkRenderPass vk_render_pass;
-    VkExtent2D vk_extent;
+    std::vector<VkFramebuffer> vk_framebuffers;
+
+    VulkanRendererDependencies dependencies;
 };
 
 #endif // #ifndef VULKAN_RENDERER_H

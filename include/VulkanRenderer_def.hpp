@@ -7,17 +7,21 @@
 #include <cstdint>
 
 struct VulkanRendererDependencies {
-    VkQueue* graphics_queue;
-    std::vector<VkFramebuffer>* framebuffers;
-    VkRenderPass* render_pass;
-    VkExtent2D* extent;
+    VkQueue graphics_queue;
+    VkFormat framebuffer_format;
+    std::vector<VkImageView> image_views;
+    VkExtent2D extent;
+};
+
+struct VulkanRendererSettings {
+    bool enableDepthStencil = false;
 };
 
 struct VulkanRendererCreateInfo {
     uint32_t queue_family_index;
-    uint32_t max_queue_frame;
     VkDevice device;
     VulkanRendererDependencies dependencies;
+    VulkanRendererSettings settings;
 };
 
 struct BaseVertex {
@@ -44,10 +48,5 @@ struct BaseVertex {
         info[1].offset = offsetof(BaseVertex, b_color); // 32 + 32 + 32
         return info;
     }
-};
-
-struct ShaderData {
-    std::tuple<char*, size_t> vertex_data;
-    std::tuple<char*, size_t> fragment_data;
 };
 #endif // #ifndef VULKAN_RENDERER_DEF_H

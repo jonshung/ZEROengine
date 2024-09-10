@@ -19,24 +19,13 @@ private:
     VulkanContext vulkan_context;
 
 public:
-    void run() {
-        if(SDL_WasInit(SDL_INIT_VIDEO) == 0 && SDL_Init(SDL_INIT_VIDEO) < 0) {
-            throw std::runtime_error("SDL_Init() failed, err: " + std::string(SDL_GetError()));
-        }
-        window_context.initWindow(640, 480);
-        vulkan_context.initVulkan(&window_context);
-        auto frag_data = readFile(std::string(PROJECT_BINARY_TEST_DIR) + "/frag.spv");
-        auto vert_data = readFile(std::string(PROJECT_BINARY_TEST_DIR) + "/vert.spv");
-        
-        vulkan_context.getScreenRenderer().createGraphicsPipelines(vulkan_context.getDevice(), { {vert_data, frag_data} });
-        mainLoop();
-    }
-
+    void run();
     ~BasicApp();
 
 private:
     SDL_Event context_event;
     bool quitting_signal = false;
+    VkPipeline testing_pipeline = VK_NULL_HANDLE;
 
 protected:
     static std::tuple<char*, size_t> readFile(const std::string& filename) {

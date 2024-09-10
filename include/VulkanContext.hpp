@@ -41,10 +41,8 @@ private:
     VkPhysicalDevice vk_physical_device = VK_NULL_HANDLE;
     VkDevice vk_device;
     WindowContext* window_ctx = nullptr;
-
     VulkanRenderer vk_screen_renderer;
-    VkRenderPass vk_screen_render_pass = VK_NULL_HANDLE;
-    std::vector<VkFramebuffer> vk_screen_framebuffers;
+    std::unique_ptr<VulkanPipelineBuffer> vk_graphics_pipeline_buffer;
 
     VkQueueInfo vk_graphics_queue;
     VkQueueInfo vk_presentation_queue;
@@ -110,6 +108,9 @@ public:
     VulkanRenderer& getScreenRenderer() {
         return this->vk_screen_renderer;
     }
+    VulkanPipelineBuffer& getGraphicsPipelineBuffer() {
+        return *this->vk_graphics_pipeline_buffer;
+    }
     VkDevice& getDevice() {
         return this->vk_device;
     }
@@ -130,7 +131,6 @@ private:
     void VKInit_initLogicalDevice();
     void VKInit_initSwapChain();
     void VKInit_initSwapChainBuffers();
-    void VKInit_screenRenderPass();
 };
 
 #endif // #ifndef VULKAN_RENDERING_CONTEXT_H
