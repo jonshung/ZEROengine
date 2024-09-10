@@ -4,17 +4,22 @@
 #include <array>
 
 void VulkanRenderer::initVulkanRenderer(const VulkanRendererCreateInfo *info) {
+    this->vk_device_handle = info->device;
+    this->graphical_queue = info->queue_info;
+    
     this->reloadDependencies(info->dependencies);
     this->reloadSettings(info->settings);
-    this->reloadRenderPass(info->device);
-    this->reloadFramebuffers(info->device);
+    this->reloadRenderPass();
+    this->reloadFramebuffers();
 
-    createCommandPool(info->device, info->queue_family_index);
-    createCommandBuffer(info->device, info->dependencies.image_views.size());
-    createConcurrencyLock(info->device, info->dependencies.image_views.size()); // locks for each frame
+    createCommandPool(info->queue_info.queueFamilyIndex);
+    createCommandBuffer(info->dependencies.image_views.size());
+    createConcurrencyLock(info->dependencies.image_views.size()); // locks for each frame
 }
 
-void VulkanRenderer::reloadRenderPass(VkDevice device) {
+void VulkanRenderer::reloadRenderPass() {
+    VkDevice& device = this->vk_device_handle;
+
     std::array<VkAttachmentDescription, 2> attachments = {};
     attachments[0].format = this->dependencies.framebuffer_format;
     attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
@@ -83,7 +88,9 @@ void VulkanRenderer::reloadRenderPass(VkDevice device) {
     }
 }
 
-void VulkanRenderer::reloadFramebuffers(VkDevice device) {
+void VulkanRenderer::reloadFramebuffers() {
+    VkDevice& device = this->vk_device_handle;
+
     this->vk_framebuffers.resize(this->dependencies.image_views.size());
     for(size_t i = 0; i < static_cast<size_t>(this->vk_framebuffers.size()); ++i) {
         VkImageView* img_view_ref = &this->dependencies.image_views[i];
@@ -102,7 +109,9 @@ void VulkanRenderer::reloadFramebuffers(VkDevice device) {
     }
 }
 
-void VulkanRenderer::createCommandPool(VkDevice device, uint32_t queueFamilyIndex) {
+void VulkanRenderer::createCommandPool(uint32_t queueFamilyIndex) {
+    VkDevice& device = this->vk_device_handle;
+
     VkCommandPoolCreateInfo cmd_pool_create_info{};
     cmd_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
     cmd_pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
@@ -113,7 +122,9 @@ void VulkanRenderer::createCommandPool(VkDevice device, uint32_t queueFamilyInde
     }
 }
 
-void VulkanRenderer::createCommandBuffer(VkDevice device, uint32_t count) {
+void VulkanRenderer::createCommandBuffer(uint32_t count) {
+    VkDevice& device = this->vk_device_handle;
+
     this->vk_cmd_buffers.resize(this->vk_cmd_buffers.size() + count);
     VkCommandBufferAllocateInfo alloc_info{};
     alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
@@ -191,7 +202,7 @@ void VulkanRenderer::submitRenderCommandBuffer(const uint32_t &frame_cmd_buffer_
     submit_info.pWaitDstStageMask = wait_stages;
     submit_info.signalSemaphoreCount = 1;
     submit_info.pSignalSemaphores = &this->vk_rendering_mutex[frame_cmd_buffer_index];
-    VkResult rslt = vkQueueSubmit(this->dependencies.graphics_queue, 1, &submit_info, this->vk_presentation_mutex[frame_cmd_buffer_index]);
+    VkResult rslt = vkQueueSubmit(this->graphical_queue.queue, 1, &submit_info, this->vk_presentation_mutex[frame_cmd_buffer_index]);
     if(rslt != VK_SUCCESS) {
         throw std::runtime_error("submitRenderThreadCommandBuffer()::vkQueueSubmit() failed, err: " + std::string(string_VkResult(rslt)));
     }
@@ -201,7 +212,9 @@ void VulkanRenderer::resetRenderCommandBuffer(const uint32_t &frame_cmd_buffer_i
     vkResetCommandBuffer(this->vk_cmd_buffers[frame_cmd_buffer_index], 0);
 }
 
-void VulkanRenderer::createConcurrencyLock(VkDevice device, uint32_t count) {
+void VulkanRenderer::createConcurrencyLock(uint32_t count) {
+    VkDevice& device = this->vk_device_handle;
+
     this->vk_image_mutex.resize(this->vk_image_mutex.size() + count);
     this->vk_rendering_mutex.resize(this->vk_rendering_mutex.size() + count);
     this->vk_presentation_mutex.resize(this->vk_presentation_mutex.size() + count);
@@ -232,7 +245,9 @@ void VulkanRenderer::setVerticesBuffer() {
     // TODO
 }
 
-void VulkanRenderer::cleanup_concurrency_locks(VkDevice device) {
+void VulkanRenderer::cleanup_concurrency_locks() {
+    VkDevice& device = this->vk_device_handle;
+
     // concurrency locks count should be synchronized
     uint32_t buffer_count = this->vk_image_mutex.size();
     for(uint32_t i = 0; i < buffer_count; ++i) {
@@ -242,20 +257,23 @@ void VulkanRenderer::cleanup_concurrency_locks(VkDevice device) {
     }
 }
 
-void VulkanRenderer::cleanup_commandBuffers(VkDevice device) {
+void VulkanRenderer::cleanup_commandBuffers() {
+    VkDevice& device = this->vk_device_handle;
     vkDestroyCommandPool(device, this->vk_cmd_pool, nullptr);
 }
 
-void VulkanRenderer::cleanup_framebuffers(VkDevice device) {
+void VulkanRenderer::cleanup_framebuffers() {
+    VkDevice& device = this->vk_device_handle;
     for(auto &fb : this->vk_framebuffers) {
         vkDestroyFramebuffer(device, fb, nullptr);
     }
 }
 
-void VulkanRenderer::cleanup(VkDevice device) {
-    cleanup_concurrency_locks(device);
-    cleanup_commandBuffers(device);
-    cleanup_framebuffers(device);
+void VulkanRenderer::cleanup() {
+    VkDevice& device = this->vk_device_handle;
+    cleanup_concurrency_locks();
+    cleanup_commandBuffers();
+    cleanup_framebuffers();
     
     vkDestroyRenderPass(device, this->vk_render_pass, nullptr);
 }

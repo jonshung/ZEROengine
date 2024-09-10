@@ -14,16 +14,19 @@
 class VulkanRenderer {
 private:
     VulkanRendererSettings settings;
+    VkQueueInfo graphical_queue;
+    VkDevice vk_device_handle;
+
     bool framebuffer_validation = true;
 
 // initialization and cleanup procedures
 public:
     void initVulkanRenderer(const VulkanRendererCreateInfo *info);
     
-    void cleanup_concurrency_locks(VkDevice device);
-    void cleanup_commandBuffers(VkDevice device);
-    void cleanup_framebuffers(VkDevice device);
-    void cleanup(VkDevice device);
+    void cleanup_concurrency_locks();
+    void cleanup_commandBuffers();
+    void cleanup_framebuffers();
+    void cleanup();
 
 // public synchronization api for application draw call
 public:
@@ -34,8 +37,8 @@ public:
     void reloadSettings(VulkanRendererSettings _settings) {
         this->settings = _settings;
     }
-    void reloadRenderPass(VkDevice device);
-    void reloadFramebuffers(VkDevice device);
+    void reloadRenderPass();
+    void reloadFramebuffers();
     void validateFramebuffer() {
         this->framebuffer_validation = true;
     }
@@ -65,11 +68,11 @@ public:
 // command pool and buffers
 private:
     // create the process's command pool
-    void createCommandPool(VkDevice device, uint32_t queueFamilyIndex);
+    void createCommandPool(uint32_t queueFamilyIndex);
     // allocate additional command buffers
-    void createCommandBuffer(VkDevice device, uint32_t count);
+    void createCommandBuffer(uint32_t count);
     // allocate additional concurrency lock for synchronization
-    void createConcurrencyLock(VkDevice device, uint32_t count);
+    void createConcurrencyLock(uint32_t count);
 
 private:
     VkCommandPool vk_cmd_pool;

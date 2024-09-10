@@ -24,20 +24,6 @@ void VulkanContext::initVulkan(WindowContext* const &window_context) {
     
     VKInit_initSwapChain();
     VKInit_initSwapChainBuffers();
-
-    VulkanRendererDependencies dependencies{};
-    dependencies.graphics_queue = this->vk_graphics_queue.queue;
-    dependencies.image_views = this->vk_swapchain_image_views;
-    dependencies.extent = this->vk_swapchain_extent;
-    dependencies.framebuffer_format = this->vk_swapchain_image_format;
-
-    VulkanRendererCreateInfo info{};
-    info.device = this->vk_device;
-    info.queue_family_index = this->vk_graphics_queue.queueFamilyIndex;
-    info.dependencies = dependencies;
-    this->vk_screen_renderer.initVulkanRenderer(&info);
-
-    this->vk_graphics_pipeline_buffer = std::make_unique<VulkanPipelineBuffer>(this->vk_screen_renderer.getRenderPass());
 }
 
 void VulkanContext::VKInit_initInstance() {
@@ -433,22 +419,11 @@ void VulkanContext::queueNextFrame() {
 }
 
 void VulkanContext::VKReload_swapChain() {
-    vkDeviceWaitIdle(this->vk_device);
-    this->vk_screen_renderer.invalidateFramebuffer();
-    this->vk_screen_renderer.cleanup_framebuffers(this->vk_device);
+    // should only be called in context when none of these is in used.
     cleanup_swapChain();
 
     VKInit_initSwapChain();
     VKInit_initSwapChainBuffers();
-
-    VulkanRendererDependencies dependencies{};
-    dependencies.graphics_queue = this->vk_graphics_queue.queue;
-    dependencies.image_views = this->vk_swapchain_image_views;
-    dependencies.framebuffer_format = this->vk_swapchain_image_format;
-    dependencies.extent = this->vk_swapchain_extent;
-    this->vk_screen_renderer.reloadDependencies(dependencies);
-    this->vk_screen_renderer.reloadFramebuffers(this->vk_device);
-    this->vk_screen_renderer.validateFramebuffer();
 }
 
 void VulkanContext::cleanup_swapChain() {
@@ -459,10 +434,8 @@ void VulkanContext::cleanup_swapChain() {
 }
 
 void VulkanContext::cleanup() {
-    vkDeviceWaitIdle(this->vk_device); // waiting for every last thing to finish first
+    // cleanup should be called in context when the device is idling.
     cleanup_swapChain();
-    (*this->vk_graphics_pipeline_buffer).cleanup(this->vk_device);
-    this->vk_screen_renderer.cleanup(this->vk_device);
 
     vkDestroySurfaceKHR(this->vk_instance, this->vk_surface, nullptr);
     vkDestroyDevice(this->vk_device, nullptr);

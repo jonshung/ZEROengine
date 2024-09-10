@@ -6,8 +6,9 @@
 
 #include <cstdint>
 
+#include "VulkanContext_def.hpp"
+
 struct VulkanRendererDependencies {
-    VkQueue graphics_queue;
     VkFormat framebuffer_format;
     std::vector<VkImageView> image_views;
     VkExtent2D extent;
@@ -18,7 +19,7 @@ struct VulkanRendererSettings {
 };
 
 struct VulkanRendererCreateInfo {
-    uint32_t queue_family_index;
+    VkQueueInfo queue_info;
     VkDevice device;
     VulkanRendererDependencies dependencies;
     VulkanRendererSettings settings;

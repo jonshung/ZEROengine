@@ -17,6 +17,8 @@ class BasicApp {
 private:
     SDLWindowContext window_context;
     VulkanContext vulkan_context;
+    VulkanRenderer vulkan_screen_renderer;
+    std::unique_ptr<VulkanPipelineBuffer> vk_graphics_pipeline_buffer;
 
 public:
     void run();
@@ -47,6 +49,7 @@ private:
     void mainLoop();
 
     void drawFrame();
+    void handleResize();
     void cleanup();
 };  // BasicApp
 

@@ -9,20 +9,11 @@
 #include <optional>
 #include <unordered_map>
 
+#include "VulkanContext_def.hpp"
 #include "WindowContext.hpp"
 #include "VulkanRenderer.hpp"
 
-struct VkQueueInfo {
-    VkQueue queue;
-    uint32_t queueFamilyIndex;
-};
-
 const uint32_t MAX_QUEUED_FRAME = 2;
-
-// debug validation layers
-const std::vector<const char*> dbg_validation_layers = {
-    "VK_LAYER_KHRONOS_validation"
-};
 
 // required device extensions
 const std::vector<const char*> device_extensions = {
@@ -41,8 +32,6 @@ private:
     VkPhysicalDevice vk_physical_device = VK_NULL_HANDLE;
     VkDevice vk_device;
     WindowContext* window_ctx = nullptr;
-    VulkanRenderer vk_screen_renderer;
-    std::unique_ptr<VulkanPipelineBuffer> vk_graphics_pipeline_buffer;
 
     VkQueueInfo vk_graphics_queue;
     VkQueueInfo vk_presentation_queue;
@@ -105,14 +94,20 @@ private:
 
 // basic wrapping interface for applications to communicate/synchronize with Vulkan per-frame rendering
 public:
-    VulkanRenderer& getScreenRenderer() {
-        return this->vk_screen_renderer;
-    }
-    VulkanPipelineBuffer& getGraphicsPipelineBuffer() {
-        return *this->vk_graphics_pipeline_buffer;
+    VkQueueInfo& getGraphicalQueue() {
+        return this->vk_graphics_queue;
     }
     VkDevice& getDevice() {
         return this->vk_device;
+    }
+    VkExtent2D& requestSwapChainExtent() {
+        return this->vk_swapchain_extent;
+    }
+    VkFormat& requestSwapChainImageFormat() {
+        return this->vk_swapchain_image_format;
+    }
+    std::vector<VkImageView>& requestSwapChainImageViews() {
+        return this->vk_swapchain_image_views;
     }
     VkResult acquireSwapChainImageIndex(uint32_t &index, VkSemaphore semaphore_lock);
     void presentLatestImage(const uint32_t &image_index, VkSemaphore semaphore_lock);
