@@ -1,7 +1,8 @@
 #include "VulkanPipelineBuffer.hpp"
-#include <vulkan/vk_enum_string_helper.h>
 
 #include <numeric>
+
+#include <vulkan/vk_enum_string_helper.h>
 
 VkShaderModule VulkanPipelineBuffer::createShaderModule(VkDevice device, const char* data, const size_t &data_size) {
     VkShaderModuleCreateInfo shader_create_info{};

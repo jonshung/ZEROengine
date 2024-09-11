@@ -8,21 +8,13 @@
 
 #include "VulkanContext_def.hpp"
 
-struct VulkanRendererDependencies {
-    VkFormat framebuffer_format;
-    std::vector<VkImageView> image_views;
-    VkExtent2D extent;
-};
-
 struct VulkanRendererSettings {
-    bool enableDepthStencil = false;
 };
 
-struct VulkanRendererCreateInfo {
+struct VulkanRenderContextCreateInfo {
     VkQueueInfo queue_info;
     VkDevice device;
-    VulkanRendererDependencies dependencies;
-    VulkanRendererSettings settings;
+    uint32_t submission_queue_count;
 };
 
 struct BaseVertex {

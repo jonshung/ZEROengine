@@ -16,6 +16,7 @@ void VulkanContext::initVulkan(WindowContext* const &window_context) {
         throw std::runtime_error("validation layers requested, but not available!");
     }
     this->window_ctx = window_context;
+    this->vk_swapchain_render_pass = std::make_shared<VkRenderPass>();
     // preserve order
     VKInit_initInstance();
     VKInit_initWindowSurface();
@@ -23,7 +24,8 @@ void VulkanContext::initVulkan(WindowContext* const &window_context) {
     VKInit_initLogicalDevice();
     
     VKInit_initSwapChain();
-    VKInit_initSwapChainBuffers();
+    VKInit_initSwapChainRenderPass();
+    VKInit_initSwapChainRenderTargets();
 }
 
 void VulkanContext::VKInit_initInstance() {
@@ -169,20 +171,96 @@ void VulkanContext::VKInit_initSwapChain() {
     if((rslt = vkCreateSwapchainKHR(this->vk_device, &swap_chain_create_info, nullptr, &this->vk_swapchain)) != VK_SUCCESS) {
         throw std::runtime_error("vkCreateSwapchainKHR() failed, err: " + std::string(string_VkResult(rslt)));
     }
-    vkGetSwapchainImagesKHR(this->vk_device, this->vk_swapchain, &image_count, nullptr);
-    this->vk_swapchain_images.resize(image_count);
-    vkGetSwapchainImagesKHR(this->vk_device, this->vk_swapchain, &image_count, this->vk_swapchain_images.data());
 }
 
-void VulkanContext::VKInit_initSwapChainBuffers() {
-    this->vk_swapchain_image_views.resize(this->vk_swapchain_images.size());
-    size_t i = 0;
+void VulkanContext::VKInit_initSwapChainRenderPass() {
+    std::array<VkAttachmentDescription, 2> attachments = {};
+
+    attachments[0].format = this->vk_swapchain_image_format;
+    attachments[0].samples = VK_SAMPLE_COUNT_1_BIT;
+    attachments[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    attachments[0].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    attachments[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    attachments[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    attachments[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    attachments[0].finalLayout = VK_IMAGE_LAYOUT_PRESENT_SRC_KHR;
+
+    VkAttachmentReference color_attachment_ref{};
+    color_attachment_ref.attachment = 0;
+    color_attachment_ref.layout = VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    VkSubpassDescription subpass{};
+    subpass.colorAttachmentCount = 1;
+    subpass.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    subpass.pColorAttachments = &color_attachment_ref;
+
+	std::array<VkSubpassDependency, 2> subpass_dep = {};
+    subpass_dep[0].srcSubpass = VK_SUBPASS_EXTERNAL;
+    subpass_dep[0].dstSubpass = 0;
+	subpass_dep[0].srcStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+    subpass_dep[0].dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    subpass_dep[0].srcAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+    subpass_dep[0].dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+	subpass_dep[0].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+
+    /* future support
+    if(this->settings.enableDepthStencil) {
+        attachments[1].format = VK_FORMAT_D16_UNORM;
+        attachments[1].samples = VK_SAMPLE_COUNT_1_BIT;
+        attachments[1].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        attachments[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        attachments[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+        attachments[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        attachments[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        attachments[1].finalLayout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        VkAttachmentReference depth_attachment_ref = {};
+        depth_attachment_ref.attachment = 1;
+        depth_attachment_ref.layout = VK_IMAGE_LAYOUT_DEPTH_STENCIL_ATTACHMENT_OPTIMAL;
+
+        subpass.pDepthStencilAttachment = &depth_attachment_ref;
+        subpass_dep[1].srcSubpass = VK_SUBPASS_EXTERNAL;
+        subpass_dep[1].dstSubpass = 0;
+        subpass_dep[1].srcStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+        subpass_dep[1].dstStageMask = VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT;
+        subpass_dep[1].srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_READ_BIT | VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+        subpass_dep[1].dstAccessMask = VK_ACCESS_MEMORY_READ_BIT;
+        subpass_dep[1].dependencyFlags = VK_DEPENDENCY_BY_REGION_BIT;
+    }
+    */
+
+    VkRenderPassCreateInfo render_pass_info{};
+    render_pass_info.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    render_pass_info.attachmentCount = static_cast<uint32_t>(this->enable_depth_stencil_subpass ? 2 : 1);
+    render_pass_info.pAttachments = attachments.data();
+    render_pass_info.subpassCount = 1;
+    render_pass_info.pSubpasses = &subpass;
+    render_pass_info.dependencyCount = static_cast<uint32_t>(this->enable_depth_stencil_subpass ? 2 : 1);
+    render_pass_info.pDependencies = subpass_dep.data();
+    VkResult rslt = vkCreateRenderPass(this->vk_device, &render_pass_info, nullptr, this->vk_swapchain_render_pass.get());
+    if (rslt != VK_SUCCESS) {
+        throw std::runtime_error("vkCreateRenderPass failed, err: " + std::string(string_VkResult(rslt)));
+    }
+}
+
+void VulkanContext::VKInit_initSwapChainRenderTargets() {
+    uint32_t image_count = 0;
+    vkGetSwapchainImagesKHR(this->vk_device, this->vk_swapchain, &image_count, nullptr);
+    this->vk_swapchain_render_targets.resize(image_count);
+    std::vector<VkImage> image_buffer(image_count);
+    vkGetSwapchainImagesKHR(this->vk_device, this->vk_swapchain, &image_count, image_buffer.data());
+
     VkResult rslt;
-    for(auto &vk_image : this->vk_swapchain_images) {
+    for(size_t i = 0; i < image_buffer.size(); ++i) {
+        this->vk_swapchain_render_targets[i].image = image_buffer[i];
+        this->vk_swapchain_render_targets[i].framebuffer_extent = this->vk_swapchain_extent;
+        this->vk_swapchain_render_targets[i].framebuffer_format = this->vk_swapchain_image_format;
+        this->vk_swapchain_render_targets[i].render_pass = this->vk_swapchain_render_pass;
+
         VkImageViewCreateInfo img_view_create_info{};
         img_view_create_info.format = this->vk_swapchain_image_format;
         img_view_create_info.sType = VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO;
-        img_view_create_info.image = vk_image;
+        img_view_create_info.image = image_buffer[i];
         img_view_create_info.viewType = VK_IMAGE_VIEW_TYPE_2D;
         img_view_create_info.components.r = VK_COMPONENT_SWIZZLE_IDENTITY;
         img_view_create_info.components.g = VK_COMPONENT_SWIZZLE_IDENTITY;
@@ -193,10 +271,22 @@ void VulkanContext::VKInit_initSwapChainBuffers() {
         img_view_create_info.subresourceRange.levelCount = 1;
         img_view_create_info.subresourceRange.baseMipLevel = 0;
         img_view_create_info.subresourceRange.baseArrayLayer = 0;
-        if((rslt = vkCreateImageView(this->vk_device, &img_view_create_info, nullptr, &this->vk_swapchain_image_views[i])) != VK_SUCCESS) {
+        if((rslt = vkCreateImageView(this->vk_device, &img_view_create_info, nullptr, &this->vk_swapchain_render_targets[i].image_view)) != VK_SUCCESS) {
             throw std::runtime_error("vkCreateImageView() failed, err: " + std::string(string_VkResult(rslt)));
         }
-        ++i;
+
+        VkImageView* img_view_ref = &this->vk_swapchain_render_targets[i].image_view;
+        VkFramebufferCreateInfo framebuffers_create_info{};
+        framebuffers_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
+        framebuffers_create_info.width = this->vk_swapchain_extent.width;
+        framebuffers_create_info.height = this->vk_swapchain_extent.height;
+        framebuffers_create_info.layers = 1;
+        framebuffers_create_info.attachmentCount = 1;
+        framebuffers_create_info.pAttachments = img_view_ref;
+        framebuffers_create_info.renderPass = *this->vk_swapchain_render_pass;
+        if((rslt = vkCreateFramebuffer(this->vk_device, &framebuffers_create_info, nullptr, &this->vk_swapchain_render_targets[i].framebuffer)) != VK_SUCCESS) {
+            throw std::runtime_error("vkCreateFramebuffer() failed, err: + " + std::string(string_VkResult(rslt)));
+        }
     }
 }
 
@@ -423,18 +513,20 @@ void VulkanContext::VKReload_swapChain() {
     cleanup_swapChain();
 
     VKInit_initSwapChain();
-    VKInit_initSwapChainBuffers();
+    VKInit_initSwapChainRenderTargets();
 }
 
 void VulkanContext::cleanup_swapChain() {
-    for(auto &img_view : this->vk_swapchain_image_views) {
-        vkDestroyImageView(this->vk_device, img_view, nullptr);
+    for(auto &render_target : this->vk_swapchain_render_targets) {
+        vkDestroyFramebuffer(this->vk_device, render_target.framebuffer, nullptr);
+        vkDestroyImageView(this->vk_device, render_target.image_view, nullptr);
     }
     vkDestroySwapchainKHR(this->vk_device, this->vk_swapchain, nullptr);
 }
 
 void VulkanContext::cleanup() {
     // cleanup should be called in context when the device is idling.
+    vkDestroyRenderPass(this->vk_device, *this->vk_swapchain_render_pass, nullptr);
     cleanup_swapChain();
 
     vkDestroySurfaceKHR(this->vk_instance, this->vk_surface, nullptr);

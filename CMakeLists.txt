@@ -4,7 +4,7 @@ cmake_minimum_required(VERSION 3.25)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY "${CMAKE_BINARY_DIR}/$<CONFIGURATION>")
 
-project(Proj_1 VERSION 1.0.0 LANGUAGES CXX)
+project(ZEROengine VERSION 1.0.0 LANGUAGES CXX)
 set(TARGET_MAIN p_x86)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
@@ -26,10 +26,13 @@ target_sources(${TARGET_MAIN}
 PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/BasicApp.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/SDLWindowContext.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanContext.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanRenderer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanPipelineBuffer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/window/SDLWindowContext.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan/VulkanContext.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan/VulkanPipelineBuffer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan/VulkanRenderTarget.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan/VulkanBasicScreenRenderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan/rendering/VulkanRenderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan/rendering/VulkanRenderContext.cpp
 )
 
 target_include_directories(${TARGET_MAIN} 

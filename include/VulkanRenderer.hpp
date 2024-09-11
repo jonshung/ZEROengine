@@ -10,82 +10,99 @@
 
 #include "VulkanRenderer_def.hpp"
 #include "VulkanPipelineBuffer.hpp"
+#include "VulkanRenderTarget.hpp"
+
+struct VulkanSecondaryCommandBuffer {
+    bool ready;
+    VkCommandBuffer buffer;
+};
+
+class VulkanRenderContext {
+private:
+    VkDevice vk_device_handle;
+    VkQueueInfo vk_graphical_queue;
+
+// public synchronization api for application draw call
+public:
+    void initVulkanRenderContext(const VulkanRenderContextCreateInfo &parameters);
+    
+    void begin(const uint32_t &target_index);
+    void recordRenderPassCommandBuffer(const uint32_t &target_index, VulkanRenderTarget &render_target);
+    void end(const uint32_t &target_index);
+    void submit(const uint32_t &target_index, bool enable_wait_semaphore = false);
+    void reset(const uint32_t &target_index);
+
+    void cleanup_concurrency_locks();
+    void cleanup_commandBuffers();
+    void cleanup();
+
+// concurrency synchronization locks
+private:
+    std::vector<VkSemaphore> vk_image_mutex; // mutexes use exclusively to swapchain at current moment
+    std::vector<VkSemaphore> vk_rendering_mutex; // hardware rendering completion signal mutex
+    std::vector<VkFence> vk_presentation_mutex; // host rendering completion signal mutex
+
+public:
+    VkFence getPresentationLock(const uint32_t &target_index) {
+        return this->vk_presentation_mutex[target_index];
+    }
+    VkSemaphore getImageLock(const uint32_t &target_index) {
+        return this->vk_image_mutex[target_index];
+    }
+    VkSemaphore getRenderingLock(const uint32_t &target_index) {
+        return this->vk_rendering_mutex[target_index];
+    }
+    // allocate additional concurrency lock for synchronization
+    void createConcurrencyLock(const uint32_t &target_index);
+
+// command pool and buffers
+private:
+    VkCommandPool vk_cmd_pool;
+    std::vector<VkCommandBuffer> vk_primary_cmd_buffer;
+    std::vector<VulkanSecondaryCommandBuffer> vk_secondary_cmd_buffers;
+
+    // create the process's command pool
+    void createCommandPool(uint32_t queueFamilyIndex);
+
+public:
+    // allocate additional command buffers
+    std::vector<size_t> requestCommandBufferAllocation(uint32_t count = 1);
+    int32_t getCommandBuffer(size_t index, VulkanSecondaryCommandBuffer **buffer) {
+        if(index >= this->vk_secondary_cmd_buffers.size()) {
+            return -1;
+        }
+        *buffer = &this->vk_secondary_cmd_buffers[index];
+        return 0;
+    }
+}; // class VulkanRenderContext
 
 class VulkanRenderer {
 private:
     VulkanRendererSettings settings;
-    VkQueueInfo graphical_queue;
-    VkDevice vk_device_handle;
-
-    bool framebuffer_validation = true;
 
 // initialization and cleanup procedures
 public:
-    void initVulkanRenderer(const VulkanRendererCreateInfo *info);
-    
-    void cleanup_concurrency_locks();
-    void cleanup_commandBuffers();
-    void cleanup_framebuffers();
-    void cleanup();
+    void initVulkanRenderer(const VulkanRendererSettings &settings);
+    virtual void cleanup(VkDevice &device) {
+        (void) device;
+    }
 
-// public synchronization api for application draw call
 public:
     void setVerticesBuffer();
-    void reloadDependencies(VulkanRendererDependencies _dependencies) {
-        this->dependencies = _dependencies;
-    }
-    void reloadSettings(VulkanRendererSettings _settings) {
+    void reloadSettings(const VulkanRendererSettings &_settings) {
         this->settings = _settings;
     }
-    void reloadRenderPass();
-    void reloadFramebuffers();
-    void validateFramebuffer() {
-        this->framebuffer_validation = true;
-    }
-    void invalidateFramebuffer() {
-        this->framebuffer_validation = false;
+    VulkanRendererSettings getSettings() {
+        return this->settings;
     }
 
-    VkFence getPresentationLock(uint32_t frame_index) {
-        return this->vk_presentation_mutex[frame_index];
-    }
-    VkSemaphore getImageLock(uint32_t frame_index) {
-        return this->vk_image_mutex[frame_index];
-    }
-    VkSemaphore getRenderingLock(uint32_t frame_index) {
-        return this->vk_rendering_mutex[frame_index];
-    }
-    VkRenderPass getRenderPass() {
-        return this->vk_render_pass;
-    }
+    void reset(VkCommandBuffer &recording_buffer);
+    virtual void begin(VkCommandBuffer &recording_buffer, VulkanRenderTarget &render_target);
+    virtual void configureViewportAndScissor(VkCommandBuffer &recording_buffer, VkExtent2D &extent);
+    virtual void draw(VkCommandBuffer &recording_buffer) = 0;
+    virtual void end(VkCommandBuffer &recording_buffer);
+    virtual void record(VkCommandBuffer &recording_buffer, VulkanRenderTarget &render_target);
 
-    void beginRenderPassCommandBuffer(const uint32_t &frame_cmd_buffer_index, uint32_t image_index);
-    void recordPipelineRenderCommandBuffer(const uint32_t &frame_cmd_buffer_index, VkPipeline pipeline);
-    void endRenderPassCommandBuffer(const uint32_t &frame_cmd_buffer_index);
-    void resetRenderCommandBuffer(const uint32_t &frame_cmd_buffer_index);
-    void submitRenderCommandBuffer(const uint32_t &frame_cmd_buffer_index);
-
-// command pool and buffers
-private:
-    // create the process's command pool
-    void createCommandPool(uint32_t queueFamilyIndex);
-    // allocate additional command buffers
-    void createCommandBuffer(uint32_t count);
-    // allocate additional concurrency lock for synchronization
-    void createConcurrencyLock(uint32_t count);
-
-private:
-    VkCommandPool vk_cmd_pool;
-    std::vector<VkCommandBuffer> vk_cmd_buffers;
-    std::vector<VkSemaphore> vk_image_mutex;
-    std::vector<VkSemaphore> vk_rendering_mutex;
-    std::vector<VkFence> vk_presentation_mutex; // waiting for previous frame
-
-private:
-    VkRenderPass vk_render_pass;
-    std::vector<VkFramebuffer> vk_framebuffers;
-
-    VulkanRendererDependencies dependencies;
-};
+}; // class VulkanRenderer
 
 #endif // #ifndef VULKAN_RENDERER_H

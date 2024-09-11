@@ -4,11 +4,12 @@
 #include "SDLWindowContext.hpp"
 #include "VulkanContext.hpp"
 #include "project_env.h"
-#include "VulkanRenderer_def.hpp"
+#include "VulkanBasicScreenRenderer.hpp"
 
 #include <cstdint>
 #include <tuple>
 #include <fstream>
+#include <vector>
 
 #include <SDL3/SDL.h>
 
@@ -17,8 +18,10 @@ class BasicApp {
 private:
     SDLWindowContext window_context;
     VulkanContext vulkan_context;
-    VulkanRenderer vulkan_screen_renderer;
-    std::unique_ptr<VulkanPipelineBuffer> vk_graphics_pipeline_buffer;
+
+    std::vector<size_t> frame_command_buffer_indices;
+    VulkanRenderContext vulkan_render_context;
+    VulkanBasicScreenRenderer vulkan_screen_renderer;
 
 public:
     void run();

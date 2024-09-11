@@ -9,9 +9,10 @@
 #include <optional>
 #include <unordered_map>
 
-#include "VulkanContext_def.hpp"
-#include "WindowContext.hpp"
 #include "VulkanRenderer.hpp"
+#include "VulkanContext_def.hpp"
+#include "VulkanRenderTarget.hpp"
+#include "WindowContext.hpp"
 
 const uint32_t MAX_QUEUED_FRAME = 2;
 
@@ -29,7 +30,7 @@ const std::vector<const char*> device_extensions = {
 class VulkanContext {
 private:
     VkInstance vk_instance;
-    VkPhysicalDevice vk_physical_device = VK_NULL_HANDLE;
+    VkPhysicalDevice vk_physical_device;
     VkDevice vk_device;
     WindowContext* window_ctx = nullptr;
 
@@ -38,8 +39,9 @@ private:
 
     VkSurfaceKHR vk_surface;
     VkSwapchainKHR vk_swapchain;
-    std::vector<VkImage> vk_swapchain_images;
-    std::vector<VkImageView> vk_swapchain_image_views;
+    std::shared_ptr<VkRenderPass> vk_swapchain_render_pass;
+    std::vector<VulkanRenderTarget> vk_swapchain_render_targets;
+    bool enable_depth_stencil_subpass = false;
     
     VkFormat vk_swapchain_image_format;
     VkExtent2D vk_swapchain_extent;
@@ -51,6 +53,16 @@ private:
 // initialization and cleanup procedures
 public:
     void initVulkan(WindowContext* const &window_context);
+
+    void VKInit_initInstance();
+    void VKInit_initWindowSurface();
+    void VKInit_initPhysicalDevice();
+    void VKInit_initLogicalDevice();
+    void VKInit_initSwapChain();
+    void VKInit_initSwapChainRenderPass();
+    void VKInit_initSwapChainRenderTargets();
+
+    void VKReload_swapChain();
 
     void cleanup_swapChain();
     void cleanup();
@@ -100,14 +112,11 @@ public:
     VkDevice& getDevice() {
         return this->vk_device;
     }
-    VkExtent2D& requestSwapChainExtent() {
-        return this->vk_swapchain_extent;
+    std::vector<VulkanRenderTarget>& requestSwapChainRenderTargets() {
+        return this->vk_swapchain_render_targets;
     }
-    VkFormat& requestSwapChainImageFormat() {
-        return this->vk_swapchain_image_format;
-    }
-    std::vector<VkImageView>& requestSwapChainImageViews() {
-        return this->vk_swapchain_image_views;
+    VkRenderPass& requestSwapChainRenderPass() {
+        return (*this->vk_swapchain_render_pass);
     }
     VkResult acquireSwapChainImageIndex(uint32_t &index, VkSemaphore semaphore_lock);
     void presentLatestImage(const uint32_t &image_index, VkSemaphore semaphore_lock);
@@ -116,16 +125,6 @@ public:
 
     void waitForFence(VkFence fence);
     void releaseFence(VkFence fence);
-
-    void VKReload_swapChain();
-
-private:
-    void VKInit_initInstance();
-    void VKInit_initWindowSurface();
-    void VKInit_initPhysicalDevice();
-    void VKInit_initLogicalDevice();
-    void VKInit_initSwapChain();
-    void VKInit_initSwapChainBuffers();
 };
 
 #endif // #ifndef VULKAN_RENDERING_CONTEXT_H

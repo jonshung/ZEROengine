@@ -23,20 +23,21 @@ class VulkanPipelineBuffer {
 private:
     std::shared_ptr<std::vector<VkPipeline>> pipeline_buffer;
     std::shared_ptr<std::vector<VkPipelineLayout>> pipeline_layout;
-    VkRenderPass render_pass;
 
 public:
-    VulkanPipelineBuffer(VkRenderPass _render_pass) {
+    VulkanPipelineBuffer() {
         pipeline_buffer = std::make_shared<std::vector<VkPipeline>>();
         pipeline_layout = std::make_shared<std::vector<VkPipelineLayout>>();
-        this->render_pass = _render_pass;
     }
 
     VkShaderModule createShaderModule(VkDevice device, const char* data, const size_t &data_size);
     std::vector<size_t> createGraphicsPipelines(VkDevice device, VkPipelineLayout pipeline_layout, VkRenderPass render_pass,std::vector<ShaderData> shaders);
-    size_t createGraphicsPipelinesLayout(VkDevice);
+    size_t createGraphicsPipelinesLayout(VkDevice device);
     VkPipeline getPipeline(size_t index) {
         return (*this->pipeline_buffer)[index];
+    }
+    std::vector<VkPipeline>& getAllPipelines() {
+        return (*this->pipeline_buffer);
     }
     VkPipelineLayout getPipelineLayout(size_t index) {
         return (*this->pipeline_layout)[index];
@@ -50,8 +51,6 @@ public:
             vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
         }
     }
-
-    VulkanPipelineBuffer() = delete;
 };
 
 #endif // #ifndef VULKAN_PIPELINE_BUFFER_H

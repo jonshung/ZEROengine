@@ -24,29 +24,28 @@ void BasicApp::run() {
     auto frag_data = readFile(std::string(PROJECT_BINARY_TEST_DIR) + "/frag.spv");
     auto vert_data = readFile(std::string(PROJECT_BINARY_TEST_DIR) + "/vert.spv");
 
-    VulkanRenderer& screen_renderer = this->vulkan_screen_renderer;
-    VkQueueInfo& graphic_queue_info = this->vulkan_context.getGraphicalQueue();
+    VulkanBasicScreenRenderer &screen_renderer = this->vulkan_screen_renderer;
+    VulkanPipelineBuffer &pipeline_buffer = screen_renderer.getGraphicsPipelineBuffer();
 
-    VulkanRendererDependencies dependencies{};
-    dependencies.image_views = this->vulkan_context.requestSwapChainImageViews();
-    dependencies.extent = this->vulkan_context.requestSwapChainExtent();
-    dependencies.framebuffer_format = this->vulkan_context.requestSwapChainImageFormat();
+    VulkanRenderContext &render_context = this->vulkan_render_context;
+    VulkanRenderContextCreateInfo params{};
+    params.device = this->vulkan_context.getDevice();
+    params.queue_info = this->vulkan_context.getGraphicalQueue();
+    params.submission_queue_count = MAX_QUEUED_FRAME;
+    render_context.initVulkanRenderContext(params);
+    this->frame_command_buffer_indices = render_context.requestCommandBufferAllocation(MAX_QUEUED_FRAME);
 
-    VulkanRendererCreateInfo info{};
-    info.device = this->vulkan_context.getDevice();
-    info.queue_info = graphic_queue_info;
-    info.dependencies = dependencies;
-    screen_renderer.initVulkanRenderer(&info);
+    VulkanRendererSettings renderer_settings{}; // empty for now
+    screen_renderer.initVulkanRenderer(renderer_settings);
 
-    this->vk_graphics_pipeline_buffer = std::make_unique<VulkanPipelineBuffer>(this->vulkan_screen_renderer.getRenderPass());
-
-    uint32_t layout_index = (*this->vk_graphics_pipeline_buffer).createGraphicsPipelinesLayout(vulkan_context.getDevice());
-    std::vector<size_t> pipeline_indices = (*this->vk_graphics_pipeline_buffer).createGraphicsPipelines(
+    uint32_t layout_index = pipeline_buffer.createGraphicsPipelinesLayout(vulkan_context.getDevice());
+    std::vector<size_t> pipeline_indices = pipeline_buffer.createGraphicsPipelines(
             vulkan_context.getDevice(), 
-            (*this->vk_graphics_pipeline_buffer).getPipelineLayout(layout_index),
-            screen_renderer.getRenderPass(),
+            pipeline_buffer.getPipelineLayout(layout_index),
+            vulkan_context.requestSwapChainRenderPass(),
             { {vert_data, frag_data} });
-    this->testing_pipeline = (*this->vk_graphics_pipeline_buffer).getPipeline(pipeline_indices[0]);
+    this->testing_pipeline = pipeline_buffer.getPipeline(pipeline_indices[0]);
+    
     // freeing allocated buffers
     delete std::get<0>(frag_data);
     delete std::get<0>(vert_data);
@@ -66,10 +65,12 @@ void BasicApp::drawFrame() {
         return;
     }
     const uint32_t &current_frame_index = this->vulkan_context.getCurrentFrameIndex();
-    VulkanRenderer& screen_renderer = this->vulkan_screen_renderer;
-    this->vulkan_context.waitForFence(screen_renderer.getPresentationLock(current_frame_index));
+    VulkanBasicScreenRenderer &screen_renderer = this->vulkan_screen_renderer;
+    VulkanRenderContext &render_context = this->vulkan_render_context;
+
+    this->vulkan_context.waitForFence(render_context.getPresentationLock(current_frame_index));
     uint32_t image_index;
-    VkResult rslt = this->vulkan_context.acquireSwapChainImageIndex(image_index, screen_renderer.getImageLock(current_frame_index));
+    VkResult rslt = this->vulkan_context.acquireSwapChainImageIndex(image_index, render_context.getImageLock(current_frame_index));
     if(rslt == VK_ERROR_OUT_OF_DATE_KHR) {
         handleResize();
         return;
@@ -77,44 +78,40 @@ void BasicApp::drawFrame() {
     else if(rslt != VK_SUCCESS && rslt != VK_SUBOPTIMAL_KHR) {
         throw std::runtime_error("BasicApp::drawFrame() error, err: " + std::to_string(rslt));
     }
-    this->vulkan_context.releaseFence(screen_renderer.getPresentationLock(current_frame_index)); // releasing the lock
+    this->vulkan_context.releaseFence(render_context.getPresentationLock(current_frame_index)); // releasing the lock
 
     // BEGIN rendering pipeline
-    screen_renderer.resetRenderCommandBuffer(current_frame_index);
-    screen_renderer.beginRenderPassCommandBuffer(current_frame_index, image_index);
-    screen_renderer.recordPipelineRenderCommandBuffer(current_frame_index, this->testing_pipeline);
-    screen_renderer.endRenderPassCommandBuffer(current_frame_index);
-    
-    screen_renderer.submitRenderCommandBuffer(current_frame_index);
-    this->vulkan_context.presentLatestImage(image_index, screen_renderer.getRenderingLock(current_frame_index));
+    // recording to the secondary command buffer first
+    VulkanSecondaryCommandBuffer* screen_cmd_buffer;
+    render_context.getCommandBuffer(this->frame_command_buffer_indices[current_frame_index], &screen_cmd_buffer);
+
+    if(!screen_cmd_buffer) return; // NULL handle here
+    VulkanRenderTarget& target = this->vulkan_context.requestSwapChainRenderTargets()[image_index];
+    screen_renderer.record(screen_cmd_buffer->buffer, target);
+    screen_cmd_buffer->ready = true;
+
+    // now record to the render context and submit to hardware
+    render_context.reset(current_frame_index);
+    render_context.begin(current_frame_index);
+    render_context.recordRenderPassCommandBuffer(current_frame_index, target);
+    render_context.end(current_frame_index);
+    render_context.submit(current_frame_index, true);
+
+    this->vulkan_context.presentLatestImage(image_index, render_context.getRenderingLock(current_frame_index));
     this->vulkan_context.queueNextFrame();
     // END rendering pipeline
 }
 
 void BasicApp::handleResize() {
     vkDeviceWaitIdle(this->vulkan_context.getDevice());
-    // invalidating framebuffer on screen renderer
-    this->vulkan_screen_renderer.invalidateFramebuffer();
-    this->vulkan_screen_renderer.cleanup_framebuffers();
-
     this->vulkan_context.VKReload_swapChain();
-
-    // reloading dependencies and framebuffers creation on renderer
-    VulkanRendererDependencies dependencies{};
-    dependencies.image_views = this->vulkan_context.requestSwapChainImageViews();
-    dependencies.framebuffer_format = this->vulkan_context.requestSwapChainImageFormat();
-    dependencies.extent = this->vulkan_context.requestSwapChainExtent();
-
-    this->vulkan_screen_renderer.reloadDependencies(dependencies);
-    this->vulkan_screen_renderer.reloadFramebuffers();
-    this->vulkan_screen_renderer.validateFramebuffer();
 }
 
 void BasicApp::cleanup() {
     vkDeviceWaitIdle(this->vulkan_context.getDevice());
-    (*this->vk_graphics_pipeline_buffer).cleanup(this->vulkan_context.getDevice());
-    this->vulkan_screen_renderer.cleanup();
+    this->vulkan_screen_renderer.cleanup(this->vulkan_context.getDevice());
 
+    this->vulkan_render_context.cleanup();
     this->vulkan_context.cleanup();
     this->window_context.cleanup();
     SDL_Quit();
