@@ -31,10 +31,10 @@ void VulkanContext::initVulkan(WindowContext* const &window_context) {
 void VulkanContext::VKInit_initInstance() {
     VkApplicationInfo app_info{};
     app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
-    app_info.pApplicationName = "basic app";
-    app_info.applicationVersion = VK_MAKE_VERSION(PROJECT_VERSION_MAJOR, PROJECT_VERSION_MINOR, PROJECT_VERSION_PATCH);
-    app_info.pEngineName = "No Engine";
-    app_info.engineVersion = VK_MAKE_VERSION(PROJECT_VERSION_MAJOR, PROJECT_VERSION_MINOR, PROJECT_VERSION_PATCH);
+    app_info.pApplicationName = "ZEROengine";
+    app_info.applicationVersion = VK_MAKE_VERSION(ZEROENGINE_VERSION_MAJOR, ZEROENGINE_VERSION_MINOR, ZEROENGINE_VERSION_PATCH);
+    app_info.pEngineName = "ZEROengine";
+    app_info.engineVersion = VK_MAKE_VERSION(ZEROENGINE_VERSION_MAJOR, ZEROENGINE_VERSION_MINOR, ZEROENGINE_VERSION_PATCH);
     app_info.apiVersion = VK_API_VERSION_1_0;
 
     VkInstanceCreateInfo create_info{};

@@ -20,7 +20,7 @@ public:
     void getFramebufferSize(int &width, int &height) override;
     bool isMinimized() override;
     
-    void cleanup();
+    virtual void cleanup() override;
 
 private:
 };

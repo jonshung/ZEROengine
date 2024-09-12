@@ -1,35 +1,28 @@
-#ifndef BASIC_APP_H
-#define BASIC_APP_H
+#ifndef ZEROENGINE_H
+#define ZEROENGINE_H
 
-#include "SDLWindowContext.hpp"
-#include "VulkanContext.hpp"
+#include "VulkanGraphicalModule.hpp"
 #include "project_env.h"
-#include "VulkanBasicScreenRenderer.hpp"
 
 #include <cstdint>
 #include <tuple>
 #include <fstream>
 #include <vector>
+#include <memory>
 
 #include <SDL3/SDL.h>
 
-class BasicApp {
-    // Renderer should be here
-private:
-    SDLWindowContext window_context;
-    VulkanContext vulkan_context;
-
-    std::vector<size_t> frame_command_buffer_indices;
-    VulkanRenderContext vulkan_render_context;
-    VulkanBasicScreenRenderer vulkan_screen_renderer;
-
-public:
-    void run();
-    ~BasicApp();
-
+class ZEROengine {
 private:
     SDL_Event context_event;
+    std::shared_ptr<SDLWindowContext> window_context;
     bool quitting_signal = false;
+    std::unique_ptr<VulkanGraphicalModule> graphical_module;
+public:
+    void run();
+    ~ZEROengine();
+
+private:
     VkPipeline testing_pipeline = VK_NULL_HANDLE;
 
 protected:
@@ -50,10 +43,12 @@ protected:
     }
 private:
     void mainLoop();
-
-    void drawFrame();
-    void handleResize();
     void cleanup();
-};  // BasicApp
 
-#endif // #ifndef BASIC_APP_H
+public:
+    void quit() {
+        this->quitting_signal = true;
+    }
+};  // Class ZEROengine
+
+#endif // #ifndef ZEROENGINE_H

@@ -20,6 +20,8 @@ public:
 
     virtual void getFramebufferSize(int &width, int &height) = 0;
     virtual bool isMinimized() = 0;
+
+    virtual void cleanup() = 0;
 };
 
 #endif // #ifndef WINDOW_CONTEXT_ABSTRACT_H

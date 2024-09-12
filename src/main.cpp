@@ -1,8 +1,8 @@
-#include "BasicApp.hpp"
+#include "ZEROengine.hpp"
 #include <iostream>
 
 int main() {
-    BasicApp app;
+    ZEROengine app;
     try {
         app.run();
     } catch(const std::exception &e) {

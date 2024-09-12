@@ -25,7 +25,8 @@ target_compile_options(${TARGET_MAIN} PRIVATE
 target_sources(${TARGET_MAIN}
 PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/BasicApp.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ZEROengine.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanGraphicalModule.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/window/SDLWindowContext.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan/VulkanContext.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan/VulkanPipelineBuffer.cpp
