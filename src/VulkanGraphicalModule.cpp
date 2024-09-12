@@ -1,8 +1,8 @@
 #include "VulkanGraphicalModule.hpp"
 
-VulkanGraphicalModule::VulkanGraphicalModule(const std::shared_ptr<WindowContext> window_ctx) {
-    this->window_context = window_ctx;
-    this->vulkan_context.initVulkan(this->window_context.get());
+void VulkanGraphicalModule::initVulkanGraphicalModule() {
+    this->window_context.initWindow(640, 480);
+    this->vulkan_context.initVulkan(&this->window_context);
 
     VulkanBasicScreenRenderer &screen_renderer = this->vulkan_screen_renderer;
 
@@ -19,7 +19,7 @@ VulkanGraphicalModule::VulkanGraphicalModule(const std::shared_ptr<WindowContext
 }
 
 void VulkanGraphicalModule::drawFrame() {
-    if(this->window_context->isMinimized()) { // drawing on 0-sized framebuffer is dangerous, thus we wait until window is opened again. Also to save computation cost.
+    if(this->window_context.isMinimized()) { // drawing on 0-sized framebuffer is dangerous, thus we wait until window is opened again. Also to save computation cost.
         return;
     }
     const uint32_t &current_frame_index = this->vulkan_context.getCurrentFrameIndex();
@@ -60,7 +60,6 @@ void VulkanGraphicalModule::drawFrame() {
     // END rendering pipeline
 }
 
-
 void VulkanGraphicalModule::handleResize() {
     vkDeviceWaitIdle(this->vulkan_context.getDevice());
     this->vulkan_context.VKReload_swapChain();
@@ -72,6 +71,6 @@ void VulkanGraphicalModule::cleanup() {
 
     this->vulkan_render_context.cleanup();
     this->vulkan_context.cleanup();
-    this->window_context->cleanup();
+    this->window_context.cleanup();
     SDL_Quit();
 }

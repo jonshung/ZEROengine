@@ -14,15 +14,14 @@ const std::vector<BaseVertex> triangle = {
 };
 
 void ZEROengine::run() {
-    // all of this should be separated into a graphical drawing module - jonshung
+    // BEGIN graphical module
     if(SDL_WasInit(SDL_INIT_VIDEO) == 0 && SDL_Init(SDL_INIT_VIDEO) < 0) {
         throw std::runtime_error("SDL_Init() failed, err: " + std::string(SDL_GetError()));
     }
-    this->window_context = std::make_shared<SDLWindowContext>();
-    this->window_context->initWindow(640, 480);
     auto frag_data = readFile(std::string(ZEROENGINE_BINARY_TEST_DIR) + "/frag.spv");
     auto vert_data = readFile(std::string(ZEROENGINE_BINARY_TEST_DIR) + "/vert.spv");
-    this->graphical_module = std::make_unique<VulkanGraphicalModule>(this->window_context);
+    this->graphical_module = std::make_unique<VulkanGraphicalModule>();
+    this->graphical_module->initVulkanGraphicalModule();
 
     VulkanPipelineBuffer &pipeline_buffer = graphical_module->getScreenRenderer().getGraphicsPipelineBuffer();
     uint32_t layout_index = pipeline_buffer.createGraphicsPipelinesLayout(graphical_module->getVulkanContext().getDevice());
@@ -36,6 +35,7 @@ void ZEROengine::run() {
     // freeing allocated buffers
     delete std::get<0>(frag_data);
     delete std::get<0>(vert_data);
+    // END graphical module
     mainLoop();
 }
 

@@ -15,7 +15,6 @@
 class ZEROengine {
 private:
     SDL_Event context_event;
-    std::shared_ptr<SDLWindowContext> window_context;
     bool quitting_signal = false;
     std::unique_ptr<VulkanGraphicalModule> graphical_module;
 public:
