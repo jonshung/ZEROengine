@@ -3,7 +3,7 @@
 #include <stdexcept>
 
 void SDLWindowContext::initWindow(uint32_t width, uint32_t height) {
-    if(!this->window_handler && (this->window_handler = SDL_CreateWindow("Placeholder", width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE)) == nullptr) {
+    if(!this->window_handler && (this->window_handler = SDL_CreateWindow("ZERO/engine", width, height, SDL_WINDOW_VULKAN | SDL_WINDOW_RESIZABLE)) == nullptr) {
         throw std::runtime_error("SDL_CreateWindow() failed, err: " + std::string(SDL_GetError()));
     }
 }

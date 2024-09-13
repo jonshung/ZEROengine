@@ -1,19 +1,15 @@
 #include "VulkanBasicScreenRenderer.hpp"
 
+#include <unordered_map>
+
 #include <vulkan/vk_enum_string_helper.h>
 
-VulkanBasicScreenRenderer::VulkanBasicScreenRenderer() {
-    this->vk_graphics_pipeline_buffer = std::make_unique<VulkanPipelineBuffer>();
-}
-
-void VulkanBasicScreenRenderer::draw(VkCommandBuffer &recording_buffer) {
+void VulkanBasicScreenRenderer::draw(VkCommandBuffer &recording_buffer, VulkanGraphicsPipelineBuffer *g_pipeline_buffer) {
     // testing purpose
-    std::vector<VkPipeline>& pipelines = this->vk_graphics_pipeline_buffer.get()->getAllPipelines();
+    if(!g_pipeline_buffer) return;
+    std::unordered_map<std::size_t, VkPipeline> &pipelines = g_pipeline_buffer->getAllPipelines();
     if(pipelines.size() == 0) return;
-    vkCmdBindPipeline(recording_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, pipelines[0]);
+    VkPipeline& testing_pipeline = pipelines.begin()->second;
+    vkCmdBindPipeline(recording_buffer, VK_PIPELINE_BIND_POINT_GRAPHICS, testing_pipeline);
     vkCmdDraw(recording_buffer, 3, 1, 0 ,0);
-}
-
-void VulkanBasicScreenRenderer::cleanup(VkDevice &device) {
-    (*this->vk_graphics_pipeline_buffer).cleanup(device);
 }

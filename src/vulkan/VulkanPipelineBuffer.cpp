@@ -1,10 +1,36 @@
 #include "VulkanPipelineBuffer.hpp"
 
 #include <numeric>
+#include <utility>
 
 #include <vulkan/vk_enum_string_helper.h>
+#include "ZEROengineUtilities.hpp"
 
-VkShaderModule VulkanPipelineBuffer::createShaderModule(VkDevice device, const char* data, const size_t &data_size) {
+VulkanGraphicsPipelineTemplate::VulkanGraphicsPipelineTemplate() {
+    rasterization_state = {};
+    rasterization_state.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
+    rasterization_state.depthClampEnable = false;
+    rasterization_state.rasterizerDiscardEnable = false;
+    rasterization_state.polygonMode = VK_POLYGON_MODE_FILL;
+    rasterization_state.lineWidth = 1.0f;
+    rasterization_state.cullMode = VK_CULL_MODE_BACK_BIT;
+    rasterization_state.frontFace = VK_FRONT_FACE_CLOCKWISE;
+    rasterization_state.depthBiasEnable = VK_FALSE;
+    rasterization_state.depthBiasConstantFactor = 0.0f; // Optional
+    rasterization_state.depthBiasClamp = 0.0f; // Optional
+    rasterization_state.depthBiasSlopeFactor = 0.0f; // Optional
+
+    multisample_state = {};
+    multisample_state.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
+    multisample_state.sampleShadingEnable = VK_FALSE;
+    multisample_state.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    multisample_state.minSampleShading = 1.0f; // Optional
+    multisample_state.pSampleMask = nullptr; // Optional
+    multisample_state.alphaToCoverageEnable = VK_FALSE; // Optional
+    multisample_state.alphaToOneEnable = VK_FALSE; // Optional
+}
+
+VkShaderModule VulkanGraphicsPipelineTemplate::createShaderModule(VkDevice &device, const char* data, const std::size_t &data_size) {
     VkShaderModuleCreateInfo shader_create_info{};
     shader_create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
     shader_create_info.codeSize = data_size;
@@ -17,75 +43,55 @@ VkShaderModule VulkanPipelineBuffer::createShaderModule(VkDevice device, const c
     return shader_module;
 }
 
-size_t VulkanPipelineBuffer::createGraphicsPipelinesLayout(VkDevice device) {
-    VkPipelineLayout layout = VK_NULL_HANDLE;
+void VulkanGraphicsPipelineTemplate::createGraphicsPipelinesLayout(VkDevice &device) {
     VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
     pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
     pipeline_layout_create_info.pSetLayouts = nullptr;
     pipeline_layout_create_info.setLayoutCount = 0;
     pipeline_layout_create_info.pushConstantRangeCount = 0;
     pipeline_layout_create_info.pPushConstantRanges = nullptr;
-    VkResult rslt = vkCreatePipelineLayout(device, &pipeline_layout_create_info, nullptr, &layout);
+    VkResult rslt = vkCreatePipelineLayout(device, &pipeline_layout_create_info, nullptr, &this->pipeline_layout);
     if(rslt != VK_SUCCESS) {
         throw std::runtime_error("vkCreatePipelineLayout() failed, err:" + std::string(string_VkResult(rslt)));
     }
-    size_t index = (*pipeline_layout).size();
-    (*pipeline_layout).push_back(layout);
-    return index;
 }
 
-std::vector<size_t>
-VulkanPipelineBuffer::createGraphicsPipelines(
-    VkDevice device, 
-    VkPipelineLayout pipeline_layout, 
-    VkRenderPass render_pass,
-    std::vector<ShaderData> shaders) 
+std::vector<VkPipeline>
+VulkanGraphicsPipelineTemplate::produce(
+    VkDevice &device, 
+    VkRenderPass &render_pass,
+    std::vector<ShaderData> &shaders) 
 {
     // BEGIN fixed-function create infos
     VkPipelineVertexInputStateCreateInfo vertex_input_info{};
     vertex_input_info.sType = VK_STRUCTURE_TYPE_PIPELINE_VERTEX_INPUT_STATE_CREATE_INFO;
-    vertex_input_info.vertexBindingDescriptionCount = 0;
-    vertex_input_info.pVertexBindingDescriptions = nullptr; // Optional
-    vertex_input_info.vertexAttributeDescriptionCount = 0;
-    vertex_input_info.pVertexAttributeDescriptions = nullptr; // Optional
+    vertex_input_info.vertexBindingDescriptionCount = this->vertex_binding.size();
+    vertex_input_info.pVertexBindingDescriptions = this->vertex_binding.data(); // Optional
+    vertex_input_info.vertexAttributeDescriptionCount = this->vertex_attribute.size();
+    vertex_input_info.pVertexAttributeDescriptions = this->vertex_attribute.data(); // Optional
 
+    // TODO: support for input assembly customization
     VkPipelineInputAssemblyStateCreateInfo input_assembly{};
     input_assembly.sType = VK_STRUCTURE_TYPE_PIPELINE_INPUT_ASSEMBLY_STATE_CREATE_INFO;
     input_assembly.topology = VK_PRIMITIVE_TOPOLOGY_TRIANGLE_LIST;
     input_assembly.primitiveRestartEnable = VK_FALSE;
 
+    // TODO: support for viewport and scissor state customization
     VkPipelineViewportStateCreateInfo viewport_state{};
     viewport_state.sType = VK_STRUCTURE_TYPE_PIPELINE_VIEWPORT_STATE_CREATE_INFO;
     viewport_state.viewportCount = 1;
     viewport_state.scissorCount = 1;
     
+    // since we support resizing, dynamic state should be included
     VkPipelineDynamicStateCreateInfo dynamic_state{};
     dynamic_state.sType = VK_STRUCTURE_TYPE_PIPELINE_DYNAMIC_STATE_CREATE_INFO;
     dynamic_state.dynamicStateCount = static_cast<uint32_t>(dynamic_states.size());
     dynamic_state.pDynamicStates = dynamic_states.data();
 
-    VkPipelineRasterizationStateCreateInfo rasterizer{};
-    rasterizer.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
-    rasterizer.depthClampEnable = VK_FALSE;
-    rasterizer.rasterizerDiscardEnable = VK_FALSE;
-    rasterizer.polygonMode = VK_POLYGON_MODE_FILL;
-    rasterizer.lineWidth = 1.0f;
-    rasterizer.cullMode = VK_CULL_MODE_BACK_BIT;
-    rasterizer.frontFace = VK_FRONT_FACE_CLOCKWISE;
-    rasterizer.depthBiasEnable = VK_FALSE;
-    rasterizer.depthBiasConstantFactor = 0.0f; // Optional
-    rasterizer.depthBiasClamp = 0.0f; // Optional
-    rasterizer.depthBiasSlopeFactor = 0.0f; // Optional
+    VkPipelineRasterizationStateCreateInfo& rasterizer = this->rasterization_state;
+    VkPipelineMultisampleStateCreateInfo& multisampling = this->multisample_state;
 
-    VkPipelineMultisampleStateCreateInfo multisampling{};
-    multisampling.sType = VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO;
-    multisampling.sampleShadingEnable = VK_FALSE;
-    multisampling.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
-    multisampling.minSampleShading = 1.0f; // Optional
-    multisampling.pSampleMask = nullptr; // Optional
-    multisampling.alphaToCoverageEnable = VK_FALSE; // Optional
-    multisampling.alphaToOneEnable = VK_FALSE; // Optional
-
+    // TODO: support for color blending customization
     VkPipelineColorBlendAttachmentState color_blend_attachment{};
     color_blend_attachment.colorWriteMask = VK_COLOR_COMPONENT_R_BIT | VK_COLOR_COMPONENT_G_BIT | VK_COLOR_COMPONENT_B_BIT | VK_COLOR_COMPONENT_A_BIT;
     color_blend_attachment.blendEnable = VK_FALSE;
@@ -133,43 +139,77 @@ VulkanPipelineBuffer::createGraphicsPipelines(
     graphics_pipeline_create_info.basePipelineHandle = nullptr;
     graphics_pipeline_create_info.basePipelineIndex = -1;
 
-    size_t index = (*this->pipeline_buffer).size();
-    size_t ret_index = index;
-    (*this->pipeline_buffer).resize((*this->pipeline_buffer).size() + shaders.size());
-
-    for(ShaderData data : shaders) {
-        // BEGIN programmable-function stages
-        VkShaderModule frag_shader = createShaderModule(device, std::get<0>(data.fragment_data), std::get<1>(data.fragment_data));
-        VkShaderModule vert_shader = createShaderModule(device, std::get<0>(data.vertex_data), std::get<1>(data.vertex_data));
+    // BEGIN programmable-function stages
+    std::vector<VkPipeline> ret(shaders.size());
+    std::vector<VkGraphicsPipelineCreateInfo> jobs(shaders.size());
+    std::vector<std::pair<VkShaderModule, VkShaderModule>> shader_modules(shaders.size());
+    std::size_t i = 0;
+    for(ShaderData &data : shaders) {
+        shader_modules[i].first = createShaderModule(device, data.vertex_data.first, data.vertex_data.second);
+        shader_modules[i].second = createShaderModule(device, data.fragment_data.first, data.fragment_data.second);
 
         VkPipelineShaderStageCreateInfo vert_shader_stage_create_info{};
         vert_shader_stage_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        vert_shader_stage_create_info.module = vert_shader;
+        vert_shader_stage_create_info.module = shader_modules[i].first;
         vert_shader_stage_create_info.stage = VK_SHADER_STAGE_VERTEX_BIT;
         vert_shader_stage_create_info.pName = "main";
 
         VkPipelineShaderStageCreateInfo frag_shader_stage_create_info{};
         frag_shader_stage_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
-        frag_shader_stage_create_info.module = frag_shader;
+        frag_shader_stage_create_info.module = shader_modules[i].second;
         frag_shader_stage_create_info.stage = VK_SHADER_STAGE_FRAGMENT_BIT;
         frag_shader_stage_create_info.pName = "main";
         
-        VkPipelineShaderStageCreateInfo create_jobs[] = {vert_shader_stage_create_info, frag_shader_stage_create_info};
-        // programmable shader stages
+        VkPipelineShaderStageCreateInfo shader_program_jobs[] = {vert_shader_stage_create_info, frag_shader_stage_create_info};
         graphics_pipeline_create_info.stageCount = 2;
-        graphics_pipeline_create_info.pStages = create_jobs;
-        
-        // END programmable-function stages
-
-        VkResult rslt = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, 1, &graphics_pipeline_create_info, nullptr, &(*this->pipeline_buffer)[index]);
-        if(rslt != VK_SUCCESS) {
-            throw std::runtime_error("vkCreateGraphicsPipelines() failed, err: " + std::string(string_VkResult(rslt)));
-        }
+        graphics_pipeline_create_info.pStages = shader_program_jobs;
+        jobs[i] = graphics_pipeline_create_info;
+        ++i;
+    }
+    // END programmable-function stages
+    VkResult rslt = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, jobs.size(), jobs.data(), nullptr, ret.data());
+    if(rslt != VK_SUCCESS) {
+        throw std::runtime_error("vkCreateGraphicsPipelines() failed, err: " + std::string(string_VkResult(rslt)));
+    }
+    for(auto &[vert_shader, frag_shader] : shader_modules) {
         vkDestroyShaderModule(device, frag_shader, nullptr);
         vkDestroyShaderModule(device, vert_shader, nullptr);
-        ++index;
     }
-    std::vector<size_t> ret(shaders.size());
-    std::iota(ret.begin(), ret.end(), ret_index);
     return ret;
+}
+
+
+std::vector<std::size_t> VulkanGraphicsPipelineBuffer::requestGraphicsPipelines(
+    VkDevice &device, 
+    VulkanGraphicsPipelineTemplate &pipeline_template, 
+    VkRenderPass &render_pass, 
+    std::vector<ShaderData> &data
+) {
+    // pipeline layout cache
+    std::size_t common_hash = hash_combine<VkRenderPass>((std::size_t) 0, render_pass);
+    common_hash = hash_combine<VkPipelineRasterizationStateCreateInfo>(common_hash, pipeline_template.rasterization_state);
+    common_hash = hash_combine<VkPipelineMultisampleStateCreateInfo>(common_hash, pipeline_template.multisample_state);
+    for(std::size_t i = 0; i < pipeline_template.vertex_binding.size(); i++) {
+        common_hash = hash_combine(common_hash, pipeline_template.vertex_binding[i]);
+    }
+
+    for(std::size_t i = 0; i < pipeline_template.vertex_attribute.size(); i++) {
+        common_hash = hash_combine(common_hash, pipeline_template.vertex_attribute[i]);
+    }
+    std::vector<ShaderData> submitting_job;
+    std::vector<std::size_t> ret_hash;
+    for(ShaderData &component : data) {
+        std::size_t hash = hash_combine(common_hash, component.vertex_data.first, component.vertex_data.second);
+        hash = hash_combine(hash, component.fragment_data.first, component.fragment_data.second);
+        if(this->pipeline_buffer.find(hash) == this->pipeline_buffer.end()) {
+            submitting_job.push_back(component);
+            ret_hash.push_back(hash);
+        }
+    }
+
+    std::vector<VkPipeline> produces = pipeline_template.produce(device, render_pass, submitting_job);
+    for(std::size_t i = 0; i < ret_hash.size(); ++i) {
+        this->pipeline_buffer[ret_hash[i]] = produces[i];
+    }
+    return ret_hash;
 }

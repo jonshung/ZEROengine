@@ -1,5 +1,5 @@
-#ifndef VULKAN_RENDERING_CONTEXT_H
-#define VULKAN_RENDERING_CONTEXT_H
+#ifndef ZEROENGINE_VULKAN_RENDERING_CONTEXT_H
+#define ZEROENGINE_VULKAN_RENDERING_CONTEXT_H
 
 #include <vulkan/vulkan.hpp>
 
@@ -10,9 +10,9 @@
 #include <unordered_map>
 
 #include "VulkanRenderer.hpp"
-#include "VulkanContext_def.hpp"
 #include "VulkanRenderTarget.hpp"
 #include "WindowContext.hpp"
+#include "Vulkan_define.hpp"
 
 const uint32_t MAX_QUEUED_FRAME = 2;
 
@@ -21,12 +21,21 @@ const std::vector<const char*> device_extensions = {
     VK_KHR_SWAPCHAIN_EXTENSION_NAME
 };
 
+// debug validation layers
+const std::vector<const char*> dbg_validation_layers = {
+    "VK_LAYER_KHRONOS_validation"
+};
+
 #ifdef NDEBUG
     const bool dbg_enable_validation_layers = false;
 #else
     const bool dbg_enable_validation_layers = true;
 #endif
 
+/**
+ * @brief VulkanContext holds essentials informations about the Vulkan runtime of the application. It also manage the hardware swapchain and auxillary resources.
+ * 
+ */
 class VulkanContext {
 private:
     VkInstance vk_instance;

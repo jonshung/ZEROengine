@@ -251,7 +251,7 @@ void VulkanContext::VKInit_initSwapChainRenderTargets() {
     vkGetSwapchainImagesKHR(this->vk_device, this->vk_swapchain, &image_count, image_buffer.data());
 
     VkResult rslt;
-    for(size_t i = 0; i < image_buffer.size(); ++i) {
+    for(std::size_t i = 0; i < image_buffer.size(); ++i) {
         this->vk_swapchain_render_targets[i].image = image_buffer[i];
         this->vk_swapchain_render_targets[i].framebuffer_extent = this->vk_swapchain_extent;
         this->vk_swapchain_render_targets[i].framebuffer_format = this->vk_swapchain_image_format;

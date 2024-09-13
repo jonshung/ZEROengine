@@ -1,16 +1,17 @@
-#ifndef VULKAN_PIPELINE_BUFFER_H
-#define VULKAN_PIPELINE_BUFFER_H
+#ifndef ZEROENGINE_VULKAN_PIPELINE_BUFFER_H
+#define ZEROENGINE_VULKAN_PIPELINE_BUFFER_H
 
 #include <vulkan/vulkan.hpp>
 
 #include <memory>
 #include <cstdint>
 #include <vector>
-#include <tuple>
+#include <utility>
+#include <unordered_map>
 
 struct ShaderData {
-    std::tuple<char*, size_t> vertex_data;
-    std::tuple<char*, size_t> fragment_data;
+    std::pair<char*, std::size_t> vertex_data;
+    std::pair<char*, std::size_t> fragment_data;
 };
 
 // debug dynamic viewport state
@@ -19,36 +20,62 @@ const std::vector<VkDynamicState> dynamic_states = {
     VK_DYNAMIC_STATE_SCISSOR
 };
 
-class VulkanPipelineBuffer {
+/**
+ * @brief A VulkanGraphicsPipelineTemplate provides necessary information to form a family of Graphics Pipeline, allowing the reusage of
+ * multiple render stage create info with different shader program to create VkPipeline. It also holds the VkPipelineLayout that is used
+ * to compile Pipeline, so application should be responsible for this class of object's lifetime while any GPU operation is using it, and cleanup()
+ * when it is lo longer in use.
+ * 
+ */
+class VulkanGraphicsPipelineTemplate {
 private:
-    std::shared_ptr<std::vector<VkPipeline>> pipeline_buffer;
-    std::shared_ptr<std::vector<VkPipelineLayout>> pipeline_layout;
+    VkPipelineLayout pipeline_layout;
 
 public:
-    VulkanPipelineBuffer() {
-        pipeline_buffer = std::make_shared<std::vector<VkPipeline>>();
-        pipeline_layout = std::make_shared<std::vector<VkPipelineLayout>>();
-    }
+    VulkanGraphicsPipelineTemplate();
+    std::vector<VkVertexInputBindingDescription> vertex_binding;
+    std::vector<VkVertexInputAttributeDescription> vertex_attribute;
+    VkPipelineRasterizationStateCreateInfo rasterization_state;
+    VkPipelineMultisampleStateCreateInfo multisample_state;
 
-    VkShaderModule createShaderModule(VkDevice device, const char* data, const size_t &data_size);
-    std::vector<size_t> createGraphicsPipelines(VkDevice device, VkPipelineLayout pipeline_layout, VkRenderPass render_pass,std::vector<ShaderData> shaders);
-    size_t createGraphicsPipelinesLayout(VkDevice device);
-    VkPipeline getPipeline(size_t index) {
-        return (*this->pipeline_buffer)[index];
+    // TODO: multi sampling support
+    
+    virtual void createGraphicsPipelinesLayout(VkDevice &device);
+
+public:
+    virtual VkShaderModule createShaderModule(VkDevice &device, const char* data, const std::size_t &data_size);
+    virtual std::vector<VkPipeline> produce(VkDevice &device, VkRenderPass &render_pass, std::vector<ShaderData> &shaders);
+    void cleanup(VkDevice &device) {
+        vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
     }
-    std::vector<VkPipeline>& getAllPipelines() {
-        return (*this->pipeline_buffer);
+};
+
+/**
+ * @brief VulkanGraphicsPipelineBuffer acts as a pool of loaded Graphics Pipeline, managing the allocation and destruction of such items.
+ * The application is responsible for keeping the object present while any GPU operation is using it, and calling the cleanup function when it is no longer in use.
+ * 
+ */
+class VulkanGraphicsPipelineBuffer {
+private:
+    std::unordered_map<std::size_t, VkPipeline> pipeline_buffer;
+
+public:
+    VkPipeline getPipeline(std::size_t index) {
+        return this->pipeline_buffer[index];
     }
-    VkPipelineLayout getPipelineLayout(size_t index) {
-        return (*this->pipeline_layout)[index];
+    std::unordered_map<std::size_t, VkPipeline>& getAllPipelines() {
+        return this->pipeline_buffer;
     }
+    std::vector<std::size_t> requestGraphicsPipelines(
+        VkDevice &device, 
+        VulkanGraphicsPipelineTemplate &pipeline_template, 
+        VkRenderPass &render_pass, 
+        std::vector<ShaderData> &data
+    );
 
     void cleanup(VkDevice device) {
-        for(auto &pipeline : (*pipeline_buffer)) {
+        for(auto &[key, pipeline] : pipeline_buffer) {
             vkDestroyPipeline(device, pipeline, nullptr);
-        }
-        for(auto &pipeline_layout : (*pipeline_layout)) {
-            vkDestroyPipelineLayout(device, pipeline_layout, nullptr);
         }
     }
 };

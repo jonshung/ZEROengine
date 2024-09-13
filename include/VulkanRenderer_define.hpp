@@ -1,20 +1,14 @@
-#ifndef VULKAN_RENDERER_DEF_H
-#define VULKAN_RENDERER_DEF_H
+#ifndef ZEROENGINE_VULKAN_RENDERER_DEF_H
+#define ZEROENGINE_VULKAN_RENDERER_DEF_H
 
 #include <vulkan/vulkan.hpp>
 #include "glm/glm.hpp"
 
 #include <cstdint>
 
-#include "VulkanContext_def.hpp"
+#include "Vulkan_define.hpp"
 
 struct VulkanRendererSettings {
-};
-
-struct VulkanRenderContextCreateInfo {
-    VkQueueInfo queue_info;
-    VkDevice device;
-    uint32_t submission_queue_count;
 };
 
 struct BaseVertex {

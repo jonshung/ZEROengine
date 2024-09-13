@@ -52,11 +52,11 @@ void VulkanRenderer::end(VkCommandBuffer &recording_buffer) {
     }
 }
 
-void VulkanRenderer::record(VkCommandBuffer &recording_buffer, VulkanRenderTarget &render_target) {
+void VulkanRenderer::record(VkCommandBuffer &recording_buffer, VulkanRenderTarget &render_target, VulkanGraphicsPipelineBuffer *const pipeline_buffer) {
     this->reset(recording_buffer);
     this->begin(recording_buffer, render_target);
     this->configureViewportAndScissor(recording_buffer, render_target.framebuffer_extent);
-    this->draw(recording_buffer);
+    this->draw(recording_buffer, pipeline_buffer);
     this->end(recording_buffer);
 }
 

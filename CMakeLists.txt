@@ -27,11 +27,15 @@ PUBLIC
     ${CMAKE_CURRENT_SOURCE_DIR}/src/main.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ZEROengine.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanGraphicalModule.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/ZEROengineMurmurHash3.cpp
+
     ${CMAKE_CURRENT_SOURCE_DIR}/src/window/SDLWindowContext.cpp
+
     ${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan/VulkanContext.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan/VulkanPipelineBuffer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan/VulkanRenderTarget.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan/VulkanBasicScreenRenderer.cpp
+
     ${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan/rendering/VulkanRenderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/vulkan/rendering/VulkanRenderContext.cpp
 )

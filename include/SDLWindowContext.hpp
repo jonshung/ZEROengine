@@ -1,5 +1,5 @@
-#ifndef SDLWINDOW_CONTEXT_H
-#define SDLWINDOW_CONTEXT_H
+#ifndef ZEROENGINE_SDLWINDOW_CONTEXT_H
+#define ZEROENGINE_SDLWINDOW_CONTEXT_H
 
 #include <SDL3/SDL_video.h>
 #include "WindowContext.hpp"
@@ -8,6 +8,10 @@
 
 #include <cstdint>
 
+/**
+ * @brief The basic SDL implementation for window and surface management 
+ * 
+ */
 class SDLWindowContext : public WindowContext {
 private:
     SDL_Window *window_handler = nullptr;
