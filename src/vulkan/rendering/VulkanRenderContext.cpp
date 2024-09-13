@@ -9,18 +9,16 @@ void VulkanRenderContext::initVulkanRenderContext(const VulkanRenderContextCreat
     this->vk_graphical_queue = parameters.queue_info;
     
     createCommandPool(parameters.queue_info.queueFamilyIndex);
-    this->vk_primary_cmd_buffer.resize(parameters.submission_queue_count);
+    this->vk_primary_cmd_buffer.resize(parameters.primary_buffer_count);
     VkCommandBufferAllocateInfo alloc_info{};
     alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
     alloc_info.commandPool = this->vk_cmd_pool;
     alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
-    alloc_info.commandBufferCount = parameters.submission_queue_count;
+    alloc_info.commandBufferCount = parameters.primary_buffer_count;
     VkResult rslt = vkAllocateCommandBuffers(this->vk_device_handle, &alloc_info, this->vk_primary_cmd_buffer.data());
     if(rslt != VK_SUCCESS) {
         throw std::runtime_error("vkAllocateCommandBuffers() failed, err: " + std::string(string_VkResult(rslt)));
     }
-
-    createConcurrencyLock(parameters.submission_queue_count); // locks for each frame
 }
 
 void VulkanRenderContext::begin(const uint32_t &target_index) {
@@ -69,25 +67,27 @@ void VulkanRenderContext::end(const uint32_t &target_index) {
     }
 }
 
-void VulkanRenderContext::submit(const uint32_t &target_index, bool enable_wait_semaphore) {
+void VulkanRenderContext::submit(const uint32_t &target_index, VkSemaphore wait_semaphore, VkSemaphore signal_semaphore, VkFence fence) {
     VkSubmitInfo submit_info{};
     submit_info.sType = VK_STRUCTURE_TYPE_SUBMIT_INFO;
     submit_info.commandBufferCount = 1;
     submit_info.pCommandBuffers = &this->vk_primary_cmd_buffer[target_index];
-    if(enable_wait_semaphore) {
+    if(wait_semaphore != VK_NULL_HANDLE) {
         VkPipelineStageFlags wait_stages[] = {VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT};
         submit_info.waitSemaphoreCount = 1;
         submit_info.pWaitDstStageMask = wait_stages;
-        submit_info.pWaitSemaphores = &this->vk_image_mutex[target_index];
+        submit_info.pWaitSemaphores = &wait_semaphore;
     } else {
         submit_info.waitSemaphoreCount = 0;
         submit_info.pWaitDstStageMask = 0;
         submit_info.pWaitSemaphores = nullptr;
     }
-    submit_info.signalSemaphoreCount = 1;
-    submit_info.pSignalSemaphores = &this->vk_rendering_mutex[target_index];
+    if(signal_semaphore != VK_NULL_HANDLE) {
+        submit_info.signalSemaphoreCount = 1;
+        submit_info.pSignalSemaphores = &signal_semaphore;
+    }
 
-    VkResult rslt = vkQueueSubmit(this->vk_graphical_queue.queue, 1, &submit_info, this->vk_presentation_mutex[target_index]);
+    VkResult rslt = vkQueueSubmit(this->vk_graphical_queue.queue, 1, &submit_info, fence);
     if(rslt != VK_SUCCESS) {
         throw std::runtime_error("submitRenderThreadCommandBuffer()::vkQueueSubmit() failed, err: " + std::string(string_VkResult(rslt)));
     }
@@ -110,54 +110,11 @@ void VulkanRenderContext::createCommandPool(const uint32_t &queueFamilyIndex) {
     }
 }
 
-void VulkanRenderContext::createConcurrencyLock(const uint32_t &count) {
-    VkDevice& device = this->vk_device_handle;
-
-    uint32_t start_index = this->vk_image_mutex.size();
-    this->vk_image_mutex.resize(start_index + count);
-    this->vk_rendering_mutex.resize(start_index + count);
-    this->vk_presentation_mutex.resize(start_index + count);
-
-    VkSemaphoreCreateInfo semaphore_create{};
-    semaphore_create.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-    VkResult rslt;
-    for(uint32_t i = start_index; i < this->vk_image_mutex.size(); ++i) {
-        rslt = vkCreateSemaphore(device, &semaphore_create, nullptr, &this->vk_image_mutex[i]);
-        if(rslt != VK_SUCCESS) {
-            throw std::runtime_error("vkCreateSemaphore() failed, err: " + std::string(string_VkResult(rslt)));
-        }
-        rslt = vkCreateSemaphore(device, &semaphore_create, nullptr, &this->vk_rendering_mutex[i]);
-        if(rslt != VK_SUCCESS) {
-            throw std::runtime_error("vkCreateSemaphore() failed, err: " + std::string(string_VkResult(rslt)));
-        }
-        VkFenceCreateInfo fence_create{};
-        fence_create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
-        fence_create.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-        rslt = vkCreateFence(device, &fence_create, nullptr, &this->vk_presentation_mutex[i]);
-        if(rslt != VK_SUCCESS) {
-            throw std::runtime_error("vkCreateFence() failed, err: " + std::string(string_VkResult(rslt)));
-        }
-    }
-}
-
-void VulkanRenderContext::cleanup_concurrency_locks() {
-    VkDevice& device = this->vk_device_handle;
-
-    // concurrency locks count should be synchronized
-    uint32_t buffer_count = this->vk_image_mutex.size();
-    for(uint32_t i = 0; i < buffer_count; ++i) {
-        vkDestroyFence(device, this->vk_presentation_mutex[i], nullptr);
-        vkDestroySemaphore(device, this->vk_rendering_mutex[i], nullptr);
-        vkDestroySemaphore(device, this->vk_image_mutex[i], nullptr);
-    }
-}
-
 void VulkanRenderContext::cleanup_commandBuffers() {
     VkDevice& device = this->vk_device_handle;
     vkDestroyCommandPool(device, this->vk_cmd_pool, nullptr);
 }
 
 void VulkanRenderContext::cleanup() {
-    cleanup_concurrency_locks();
     cleanup_commandBuffers();
 }

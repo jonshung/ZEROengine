@@ -5,21 +5,26 @@
 
 #include <cstdint>
 #include <vector>
+#include <utility>
 #include <functional>
 
+#include "VulkanContext.hpp"
 #include "VulkanRenderer_define.hpp"
 #include "VulkanRenderTarget.hpp"
 #include "VulkanPipelineBuffer.hpp"
 
 /**
- * @brief General purpose Renderer.
- * A Renderer implements all necessary logics to record secondary command buffers to
- * write to a specific VulkanRenderTarget.
+ * @brief General purpose Renderer abstraction.
+ * A Renderer implements all necessary logics to record secondary command buffers to submit to a RenderContext for execution
  * 
  */
 class VulkanRenderer {
 private:
     VulkanRendererSettings settings;
+
+protected:
+    VkCommandPool vk_render_cmd_pool;
+    VulkanContext* vulkan_context;
 
 // initialization and cleanup procedures
 public:
@@ -28,13 +33,14 @@ public:
      * 
      * @param settings 
      */
-    void initVulkanRenderer(const VulkanRendererSettings &settings);
-    virtual void cleanup(VkDevice &device) {
-        (void) device;
+    virtual void initVulkanRenderer(const VulkanRendererSettings &settings, VulkanContext &vulkan_context, const uint32_t &queue_family_index);
+    virtual void cleanup() {
+        vkDestroyCommandPool(this->vulkan_context->getDevice(), this->vk_render_cmd_pool, nullptr);
     }
 
 public:
-    void setVerticesBuffer();
+    VulkanRenderer() : settings({}) {}
+
     void reloadSettings(const VulkanRendererSettings &_settings) {
         this->settings = _settings;
     }
@@ -42,14 +48,16 @@ public:
         return this->settings;
     }
 
-    virtual void reset(VkCommandBuffer &recording_buffer);
-    virtual void begin(VkCommandBuffer &recording_buffer, VulkanRenderTarget &render_target);
-    virtual void configureViewportAndScissor(VkCommandBuffer &recording_buffer, VkExtent2D &extent);
+    virtual void reset() {
+        vkResetCommandPool(this->vulkan_context->getDevice(), this->vk_render_cmd_pool, 0);
+    }
+    virtual void begin() = 0;
+    virtual void configureViewportAndScissor(VkExtent2D &extent) = 0;
     // currently directly passing the graphics pipeline buffer to every renderer via here. Should be passing a structure of
     // world objects material and geometry informations in the future
-    virtual void draw(VkCommandBuffer &recording_buffer, VulkanGraphicsPipelineBuffer *const g_pipeline_buffer) = 0;
-    virtual void end(VkCommandBuffer &recording_buffer);
-    void record(VkCommandBuffer &recording_buffer, VulkanRenderTarget &render_target, VulkanGraphicsPipelineBuffer *const);
+    virtual void draw(VulkanGraphicsPipelineBuffer *const g_pipeline_buffer) = 0;
+    virtual void end() = 0;
+    virtual std::vector<std::pair<VulkanRenderTarget*, VulkanSecondaryCommandBuffer>> record(VulkanGraphicsPipelineBuffer *const) = 0;
 
 }; // class VulkanRenderer
 

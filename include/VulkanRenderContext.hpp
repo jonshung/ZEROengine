@@ -13,7 +13,7 @@
 struct VulkanRenderContextCreateInfo {
     VkQueueInfo queue_info;
     VkDevice device;
-    uint32_t submission_queue_count;
+    uint32_t primary_buffer_count;
 };
 
 /**
@@ -33,31 +33,11 @@ public:
     void begin(const uint32_t &target_index);
     void recordRenderPassCommandBuffer(const uint32_t &target_index, const VulkanSecondaryCommandBuffer &secondary_cmd_buffer, VulkanRenderTarget &render_target);
     void end(const uint32_t &target_index);
-    void submit(const uint32_t &target_index, bool enable_wait_semaphore = false);
+    void submit(const uint32_t &target_index, VkSemaphore semaphore = VK_NULL_HANDLE, VkSemaphore signal_semaphore = VK_NULL_HANDLE, VkFence fence = VK_NULL_HANDLE);
     void reset(const uint32_t &target_index);
 
-    void cleanup_concurrency_locks();
     void cleanup_commandBuffers();
     void cleanup();
-
-// concurrency synchronization locks
-private:
-    std::vector<VkSemaphore> vk_image_mutex; // mutexes use exclusively to swapchain at current moment
-    std::vector<VkSemaphore> vk_rendering_mutex; // hardware rendering completion signal mutex
-    std::vector<VkFence> vk_presentation_mutex; // host rendering completion signal mutex
-
-public:
-    VkFence getPresentationLock(const uint32_t &target_index) {
-        return this->vk_presentation_mutex[target_index];
-    }
-    VkSemaphore getImageLock(const uint32_t &target_index) {
-        return this->vk_image_mutex[target_index];
-    }
-    VkSemaphore getRenderingLock(const uint32_t &target_index) {
-        return this->vk_rendering_mutex[target_index];
-    }
-    // allocate additional concurrency lock for synchronization
-    void createConcurrencyLock(const uint32_t &target_index);
 
 // command pool and buffers
 private:

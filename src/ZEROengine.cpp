@@ -1,7 +1,7 @@
 #include "ZEROengine.hpp"
-#include "VulkanRenderer_define.hpp"
+#include "Vulkan_define.hpp"
 
-#include "glm/glm.hpp"
+#include <glm/glm.hpp>
 
 #include <vector>
 #include <array>
@@ -31,7 +31,7 @@ void ZEROengine::run() {
     pipeline_buffer.requestGraphicsPipelines(
         graphical_module.getVulkanContext().getDevice(), 
         pipeline_template,
-        graphical_module.getVulkanContext().requestSwapChainRenderPass(),
+        graphical_module.getScreenRenderer().requestSwapChainRenderPass(),
         shader_data);
     this->testing_pipeline = pipeline_buffer.getPipeline(pipeline_hash[0]);
     

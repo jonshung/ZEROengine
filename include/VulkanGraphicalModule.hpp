@@ -26,9 +26,6 @@ private:
     std::vector<std::size_t> frame_command_buffer_indices;
     VulkanRenderContext vulkan_render_context;
     VulkanBasicScreenRenderer vulkan_screen_renderer;
-    
-    VkCommandPool vk_draw_cmd_pool;
-    std::vector<VulkanSecondaryCommandBuffer> vk_draw_cmd_buffers;
 
     VulkanGraphicsPipelineTemplate forwardpass_pipeline_template;
     std::unique_ptr<VulkanGraphicsPipelineBuffer> vk_graphics_pipeline_buffer;
@@ -55,8 +52,7 @@ public:
     void initVulkanGraphicalModule();
     void drawFrame();
     void handleResize();
-
-    void requestCommandBufferAllocation(const uint32_t &count);
+    
     void cleanup();
 };
 

@@ -9,12 +9,9 @@
 #include <optional>
 #include <unordered_map>
 
-#include "VulkanRenderer.hpp"
 #include "VulkanRenderTarget.hpp"
 #include "WindowContext.hpp"
 #include "Vulkan_define.hpp"
-
-const uint32_t MAX_QUEUED_FRAME = 2;
 
 // required device extensions
 const std::vector<const char*> device_extensions = {
@@ -46,17 +43,6 @@ private:
     VkQueueInfo vk_graphics_queue;
     VkQueueInfo vk_presentation_queue;
 
-    VkSurfaceKHR vk_surface;
-    VkSwapchainKHR vk_swapchain;
-    std::shared_ptr<VkRenderPass> vk_swapchain_render_pass;
-    std::vector<VulkanRenderTarget> vk_swapchain_render_targets;
-    bool enable_depth_stencil_subpass = false;
-    
-    VkFormat vk_swapchain_image_format;
-    VkExtent2D vk_swapchain_extent;
-
-    // starting here should be user's programmable data
-    uint32_t current_frame_index = 0;
     std::vector<BaseVertex> vertices;
 
 // initialization and cleanup procedures
@@ -64,16 +50,8 @@ public:
     void initVulkan(WindowContext* const &window_context);
 
     void VKInit_initInstance();
-    void VKInit_initWindowSurface();
     void VKInit_initPhysicalDevice();
     void VKInit_initLogicalDevice();
-    void VKInit_initSwapChain();
-    void VKInit_initSwapChainRenderPass();
-    void VKInit_initSwapChainRenderTargets();
-
-    void VKReload_swapChain();
-
-    void cleanup_swapChain();
     void cleanup();
 
 private:
@@ -88,6 +66,7 @@ private:
         }
     };
 
+public:
     struct SwapChainSupportDetails {
         VkSurfaceCapabilitiesKHR capabilities;
         std::vector<VkSurfaceFormatKHR> formats;
@@ -103,34 +82,34 @@ private:
     uint32_t evaluatePhysicalDeviceSuitability(const VkPhysicalDevice &phys_device);
     bool checkDeviceExtensionSupport(const VkPhysicalDevice &phys_device);
 
-    SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice &phys_device);
-    VkSurfaceFormatKHR selectSwapChainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &formats);
-    VkPresentModeKHR selectSwapChainPresentationMode(const std::vector<VkPresentModeKHR> &modes);
-    VkExtent2D selectSwapChainExtent(const VkSurfaceCapabilitiesKHR &capabilities);
-
     QueueFamilyIndices queryQueueFamily(const VkPhysicalDevice &phys_device, const std::vector<uint32_t> &query);
     int32_t queryPresentationQueueFamily(const VkPhysicalDevice &phys_device);
 
 private:
-
+    VkSurfaceKHR vk_surface;
+    void VKInit_initWindowSurface();
+    
 // basic wrapping interface for applications to communicate/synchronize with Vulkan per-frame rendering
 public:
     VkQueueInfo& getGraphicalQueue() {
         return this->vk_graphics_queue;
     }
+    VkQueueInfo& getPresentationQueue() {
+        return this->vk_presentation_queue;
+    }
     VkDevice& getDevice() {
         return this->vk_device;
     }
-    std::vector<VulkanRenderTarget>& requestSwapChainRenderTargets() {
-        return this->vk_swapchain_render_targets;
+    VkPhysicalDevice& getPhysicalDevice() {
+        return this->vk_physical_device;
     }
-    VkRenderPass& requestSwapChainRenderPass() {
-        return (*this->vk_swapchain_render_pass);
+    WindowContext* getWindowContext() {
+        return this->window_ctx;
     }
-    VkResult acquireSwapChainImageIndex(uint32_t &index, VkSemaphore semaphore_lock);
-    void presentLatestImage(const uint32_t &image_index, VkSemaphore semaphore_lock);
-    const uint32_t& getCurrentFrameIndex() const;
-    void queueNextFrame();
+    VkSurfaceKHR& getWindowSurface() {
+        return this->vk_surface;
+    }
+    SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice &phys_device);
 
     void waitForFence(VkFence fence);
     void releaseFence(VkFence fence);
