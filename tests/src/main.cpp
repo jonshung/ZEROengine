@@ -43,16 +43,16 @@ int main() {
     auto frag_data = readFile(std::string(BINARY_PATH) + "/frag.spv");
     auto vert_data = readFile(std::string(BINARY_PATH) + "/vert.spv");
 
-    VulkanGraphicsPipelineBuffer *pipeline_buffer;
+    VulkanGraphicsPipelineBuffer *pipeline_buffer{};
     vk_graphical_module->getGraphicsPipelineBuffer(&pipeline_buffer);
-    VulkanGraphicsPipelineTemplate *pipeline_template;
+    VulkanGraphicsPipelineTemplate *pipeline_template{};
     vk_graphical_module->getForwardPassPipelineTemplate(&pipeline_template);
 
-    VulkanContext *vulkan_context;
-    VulkanBasicScreenRenderer *screen_renderer;
-    VulkanRenderWindow *render_window;
-    VkDevice device;
-    VkRenderPass renderpass;
+    VulkanContext *vulkan_context{};
+    VulkanBasicScreenRenderer *screen_renderer{};
+    VulkanRenderWindow *render_window{};
+    VkDevice device{};
+    VkRenderPass renderpass{};
     vk_graphical_module->getVulkanContext(&vulkan_context);
     vk_graphical_module->getScreenRenderer(&screen_renderer);
     screen_renderer->getRenderWindow(&render_window);

@@ -72,9 +72,7 @@ namespace ZEROengine {
             return "";
         }
 
-        VulkanContext() {
-            VKInit_initInstance();
-        }
+        VulkanContext();
         ZEROResult initVulkan(const VkSurfaceKHR &surface);
 
         ZEROResult VKInit_initInstance();

@@ -22,7 +22,6 @@ namespace ZEROengine {
     class VulkanBasicScreenRenderer : public VulkanRenderer {
     // Command buffers
     private:
-        VulkanContext vulkan_context;
         std::vector<VulkanSecondaryCommandBuffer> frame_cmd_buffers;
         const uint32_t max_queued_frame = 2;
 
@@ -96,6 +95,7 @@ namespace ZEROengine {
 
     // Initialization and cleanup procedures
     public:
+        VulkanBasicScreenRenderer();
         virtual ZEROResult initVulkanRenderer(VulkanContext *vulkan_context) override;
         ZEROResult getRenderWindow(VulkanRenderWindow** pRenderWindow) {
             *pRenderWindow = &this->render_window;

@@ -5,6 +5,22 @@
 #include <vulkan/vk_enum_string_helper.h>
 
 namespace ZEROengine {
+    VulkanBasicScreenRenderer::VulkanBasicScreenRenderer() :
+    VulkanRenderer(),
+    frame_cmd_buffers{},
+    render_window{},
+    current_frame_index{0},
+    acquired_swapchain_index{},
+    vertices_data{nullptr},
+    vertices_buffer_handles{},
+    index_data{nullptr},
+    index_buffer_handle{},
+    uniform_buffer_desc_set{},
+    vk_image_mutex{},
+    vk_rendering_mutex{},
+    vk_presentation_mutex{}
+    {}
+
     ZEROResult VulkanBasicScreenRenderer::initVulkanRenderer(VulkanContext *vulkan_context) {
         VulkanRenderer::initVulkanRenderer(vulkan_context);
         allocateSecondaryCommandBuffer(this->getMaxQueuedFrame());
@@ -12,8 +28,8 @@ namespace ZEROengine {
     }
 
     void VulkanBasicScreenRenderer::createSyncObjects(const uint32_t &count) {
-        VkDevice device;
-        this->vulkan_context.getDevice(device);
+        VkDevice device{};
+        this->vulkan_context->getDevice(device);
 
         uint32_t start_index = this->vk_image_mutex.size();
         this->vk_image_mutex.resize(start_index + count);
@@ -43,7 +59,7 @@ namespace ZEROengine {
     }
 
     VkPresentInfoKHR VulkanBasicScreenRenderer::getPresentImageInfo() {
-        VkSwapchainKHR swapchain;
+        VkSwapchainKHR swapchain{};
         this->render_window.getSwapchain(swapchain);
 
         VkPresentInfoKHR present_info{};
@@ -54,8 +70,6 @@ namespace ZEROengine {
         present_info.pSwapchains = &swapchain;
         present_info.pImageIndices = &this->acquired_swapchain_index;
         present_info.pResults = nullptr;
-        //VkResult rslt = vkQueuePresentKHR(this->vulkan_context->getPresentationQueue().queue, &present_info);
-        //(void)(rslt); // debug
         return present_info;
     }
 
@@ -111,9 +125,9 @@ namespace ZEROengine {
     }
 
     void VulkanBasicScreenRenderer::begin() {
-        VkFramebuffer current_swapchain_frame;
+        VkFramebuffer current_swapchain_frame;{}
         this->render_window.getFramebuffer(this->acquired_swapchain_index, current_swapchain_frame);
-        VkRenderPass swapchain_renderpass;
+        VkRenderPass swapchain_renderpass{};
         this->render_window.getRenderPass(swapchain_renderpass);
 
         VkCommandBufferBeginInfo cmd_buffer_begin{};
@@ -150,7 +164,7 @@ namespace ZEROengine {
     }
 
     void VulkanBasicScreenRenderer::end() {
-        VkResult rslt;
+        VkResult rslt{};
         if ((rslt = vkEndCommandBuffer(this->frame_cmd_buffers[this->current_frame_index])) != VK_SUCCESS) {
             throw std::runtime_error("vkEndCommandBuffer() failed, err: " + std::string(string_VkResult(rslt)));
         }
@@ -167,14 +181,14 @@ namespace ZEROengine {
         }
         this->reset();
         this->begin();
-        VkExtent2D render_area;
+        VkExtent2D render_area{};
         this->render_window.getDimensions(render_area.width, render_area.height);
         this->configureViewportAndScissor(render_area);
         this->draw(pipeline_buffer);
         this->end();
-        VkRenderPass renderpass;
+        VkRenderPass renderpass{};
         this->render_window.getRenderPass(renderpass);
-        VkFramebuffer framebuffer;
+        VkFramebuffer framebuffer{};
         this->render_window.getFramebuffer(this->acquired_swapchain_index, framebuffer);
         ret.push_back({ this->frame_cmd_buffers[this->current_frame_index], renderpass, render_area, framebuffer });
         return { ZERO_SUCCESS, "" };
@@ -182,8 +196,8 @@ namespace ZEROengine {
 
     void VulkanBasicScreenRenderer::allocateSecondaryCommandBuffer(const uint32_t &count) {
         if(count == 0) return;
-        VkDevice device;
-        this->vulkan_context.getDevice(device);
+        VkDevice device{};
+        this->vulkan_context->getDevice(device);
 
         std::size_t emplace_index = this->frame_cmd_buffers.size();
         this->frame_cmd_buffers.resize(emplace_index + count);
@@ -208,8 +222,8 @@ namespace ZEROengine {
     }
 
     void VulkanBasicScreenRenderer::cleanup_syncObjects() {
-        VkDevice device;
-        this->vulkan_context.getDevice(device);
+        VkDevice device{};
+        this->vulkan_context->getDevice(device);
 
         // concurrency locks count should be synchronized
         uint32_t buffer_count = this->vk_image_mutex.size();

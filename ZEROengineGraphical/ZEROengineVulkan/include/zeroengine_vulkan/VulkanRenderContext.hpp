@@ -29,6 +29,7 @@ namespace ZEROengine {
 
     // public synchronization api for application draw call
     public:
+        VulkanRenderContext();
         void initVulkanRenderContext(const VulkanRenderContextCreateInfo &parameters);
         
         void begin(const uint32_t &target_index);

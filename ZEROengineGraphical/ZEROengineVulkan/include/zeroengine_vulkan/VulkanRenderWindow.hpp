@@ -15,9 +15,6 @@ namespace ZEROengine {
      * 
      */
     class VulkanRenderWindow : public RenderWindow {
-    public:
-        ZEROResult initVulkanRenderWindow(VulkanContext *vulkan_context, const VkSurfaceKHR &surface);
-
     private:
         VulkanContext *vulkan_context;
         
@@ -40,7 +37,8 @@ namespace ZEROengine {
         ZEROResult initSwapChainRenderTargets();
         
     public:
-        ZEROResult initVulkanRenderWindow(const VulkanContext &vulkan_context, const VkSurfaceKHR &surface);
+        VulkanRenderWindow();
+        ZEROResult initVulkanRenderWindow(VulkanContext *vulkan_context, const VkSurfaceKHR &surface);
         ZEROResult getSwapchain(VkSwapchainKHR &ret) const;
         ZEROResult getFramebuffer(const uint32_t &index, VkFramebuffer &ret) const;
         ZEROResult getRenderPass(VkRenderPass &ret) const;

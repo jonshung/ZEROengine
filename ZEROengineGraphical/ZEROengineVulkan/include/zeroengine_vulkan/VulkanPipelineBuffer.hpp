@@ -41,7 +41,6 @@ namespace ZEROengine {
         std::vector<VkDescriptorSetLayoutBinding> descriptor_layout_bindings;
 
     public:
-        VulkanGraphicsPipelineTemplate();
         std::vector<VkVertexInputBindingDescription> vertex_binding;
         std::vector<VkVertexInputAttributeDescription> vertex_attribute;
         VkPipelineRasterizationStateCreateInfo rasterization_state;
@@ -50,6 +49,7 @@ namespace ZEROengine {
         // TODO: multi sampling support
 
         
+        VulkanGraphicsPipelineTemplate();
         virtual void createGraphicsPipelinesLayout(VkDevice &device);
 
     public:
@@ -71,6 +71,8 @@ namespace ZEROengine {
         std::unordered_map<std::size_t, VulkanGraphicsPipelineObject> pipeline_buffer;
 
     public:
+        VulkanGraphicsPipelineBuffer();
+
         VulkanGraphicsPipelineObject getPipeline(std::size_t index) {
             return this->pipeline_buffer[index];
         }

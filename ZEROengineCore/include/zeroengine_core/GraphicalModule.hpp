@@ -13,6 +13,7 @@ namespace ZEROengine {
         std::unique_ptr<WindowContext> window_context;
 
     public:
+        GraphicalModule() : window_context() {}
         void bindWindowContext(WindowContext* window_ctx) {
             if(!window_ctx) {
                 throw std::runtime_error("GraphicalModule::bindWindowContext() failed, error: null pointer");

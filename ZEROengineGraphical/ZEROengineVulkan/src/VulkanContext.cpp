@@ -9,6 +9,16 @@
 #include <unordered_set>
 
 namespace ZEROengine {
+    VulkanContext::VulkanContext() :
+    vk_instance{},
+    vk_physical_device{},
+    vk_device{},
+    vk_graphics_queue{},
+    vk_presentation_queue{}
+    {
+        VKInit_initInstance();
+    }
+
     ZEROResult VulkanContext::initVulkan(const VkSurfaceKHR &surface) {
         if(dbg_enable_validation_layers && !checkValidationLayersSupport()) {
             return { ZERO_VULKAN_VALIDATION_NOT_EXISTS, "Validation layer is not supported but required." };
@@ -53,7 +63,7 @@ namespace ZEROengine {
         } else {
             create_info.enabledLayerCount = 0;
         }
-        VkResult rslt;
+        VkResult rslt{};
         if((rslt = vkCreateInstance(&create_info, nullptr, &this->vk_instance)) != VK_SUCCESS) {
             ZERO_CHECK_RESULT_RETURN( ZEROResult({ ZERO_VULKAN_CREATE_INSTANCE_FAILED, string_VkResult(rslt) }) );
         }
@@ -101,7 +111,7 @@ namespace ZEROengine {
         this->vk_presentation_queue.queueFamilyIndex = presentation_queue.value();
         queue_indices.insert(static_cast<uint32_t>(presentation_queue.value()));
 
-        std::vector<VkDeviceQueueCreateInfo> queue_create_infos;
+        std::vector<VkDeviceQueueCreateInfo> queue_create_infos{};
         float queuePriority = 1.0f;
         for (uint32_t queue_family : queue_indices) {
             VkDeviceQueueCreateInfo queue_create_info{};
@@ -138,7 +148,7 @@ namespace ZEROengine {
     }
 
     bool VulkanContext::checkValidationLayersSupport(std::string *ret) {
-        uint32_t layerCount;
+        uint32_t layerCount = 0;
         vkEnumerateInstanceLayerProperties(&layerCount, nullptr);
 
         std::vector<VkLayerProperties> availableLayers(layerCount);
@@ -159,12 +169,12 @@ namespace ZEROengine {
     }
 
     bool VulkanContext::validateExtensionsSupport(const uint32_t &extension_count, const char*const* extensions, std::string *ret) {
-        uint32_t vk_extension_count;
+        uint32_t vk_extension_count = 0;
         vkEnumerateInstanceExtensionProperties(nullptr, &vk_extension_count, nullptr);
         std::vector<VkExtensionProperties> vk_extensions(vk_extension_count);
         vkEnumerateInstanceExtensionProperties(nullptr, &vk_extension_count, vk_extensions.data());
 
-        std::unordered_set<std::string> validation_intersection;
+        std::unordered_set<std::string> validation_intersection{};
         for(VkExtensionProperties &view : vk_extensions) {
             validation_intersection.insert(view.extensionName);
         }
@@ -179,7 +189,7 @@ namespace ZEROengine {
     }
 
     ZEROResult VulkanContext::selectPhysicalDevice(const VkSurfaceKHR &surface, const std::vector<VkPhysicalDevice> &phys_devices) {
-        std::multimap<uint32_t, const VkPhysicalDevice&, std::greater<uint32_t>> device_scores;
+        std::multimap<uint32_t, const VkPhysicalDevice&, std::greater<uint32_t>> device_scores{};
 
         for(const VkPhysicalDevice &dev : phys_devices) {
             device_scores.insert({evaluatePhysicalDeviceSuitability(surface, dev), dev});
@@ -192,8 +202,8 @@ namespace ZEROengine {
 
     uint32_t VulkanContext::evaluatePhysicalDeviceSuitability(const VkSurfaceKHR &surface, const VkPhysicalDevice &phys_device) {
         uint32_t score = 0;
-        VkPhysicalDeviceProperties device_properties;
-        VkPhysicalDeviceFeatures device_features;
+        VkPhysicalDeviceProperties device_properties{};
+        VkPhysicalDeviceFeatures device_features{};
         vkGetPhysicalDeviceProperties(phys_device, &device_properties);
         vkGetPhysicalDeviceFeatures(phys_device, &device_features);
 
@@ -218,7 +228,7 @@ namespace ZEROengine {
     }
 
     bool VulkanContext::checkDeviceExtensionSupport(const VkPhysicalDevice &phys_device) {
-        uint32_t extension_count;
+        uint32_t extension_count = 0;
         vkEnumerateDeviceExtensionProperties(phys_device, nullptr, &extension_count, nullptr);
 
         std::vector<VkExtensionProperties> availableExtensions(extension_count);
@@ -239,7 +249,7 @@ namespace ZEROengine {
         std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
         vkGetPhysicalDeviceQueueFamilyProperties(phys_device, &queue_family_count, queue_families.data());
         
-        QueueFamilyIndices q_index;
+        QueueFamilyIndices q_index{};
         std::unordered_set<uint32_t> query_set(query.begin(), query.end());
         uint32_t query_size = query_set.size();
 
@@ -273,8 +283,8 @@ namespace ZEROengine {
 
     // todo: add support for native queue querying outside of surfaces.
     VulkanContext::SwapChainSupportDetails VulkanContext::querySwapChainSupport(const VkPhysicalDevice &phys_device) {
-        SwapChainSupportDetails details;
-        uint32_t format_count, present_mode_count;
+        SwapChainSupportDetails details{};
+        uint32_t format_count = 0, present_mode_count = 0;
         (void) phys_device;
         (void) format_count;
         (void) present_mode_count;
@@ -295,17 +305,17 @@ namespace ZEROengine {
         if(phys_device == VK_NULL_HANDLE) {
             ZERO_EXCEPTION(ZERO_VULKAN_NULL_HANDLE, "Physical device handle is null.");
         }
-        SwapChainSupportDetails details;
+        SwapChainSupportDetails details{};
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(phys_device, surface, &details.capabilities);
 
-        uint32_t format_count;
+        uint32_t format_count = 0;
         vkGetPhysicalDeviceSurfaceFormatsKHR(phys_device, surface, &format_count, nullptr);
         if(format_count > 0) {
             details.formats.resize(format_count);
             vkGetPhysicalDeviceSurfaceFormatsKHR(phys_device, surface, &format_count, details.formats.data());
         }
 
-        uint32_t present_mode_count;
+        uint32_t present_mode_count = 0;
         vkGetPhysicalDeviceSurfacePresentModesKHR(phys_device, surface, &present_mode_count, nullptr);
         if(present_mode_count > 0) {
             details.present_modes.resize(present_mode_count);

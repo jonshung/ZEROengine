@@ -7,7 +7,13 @@
 #include "zeroengine_core/ZEROengineUtilities.hpp"
 
 namespace ZEROengine {
-    VulkanGraphicsPipelineTemplate::VulkanGraphicsPipelineTemplate() {
+    VulkanGraphicsPipelineTemplate::VulkanGraphicsPipelineTemplate() :
+    pipeline_layout{},
+    descriptor_layout{},
+    descriptor_layout_bindings{},
+    vertex_binding{},
+    vertex_attribute{}
+    {
         rasterization_state = {};
         rasterization_state.sType = VK_STRUCTURE_TYPE_PIPELINE_RASTERIZATION_STATE_CREATE_INFO;
         rasterization_state.depthClampEnable = false;
@@ -45,7 +51,7 @@ namespace ZEROengine {
     }
 
     void VulkanGraphicsPipelineTemplate::createGraphicsPipelinesLayout(VkDevice &device) {
-        VkResult rslt;
+        VkResult rslt{};
         VkDescriptorSetLayoutCreateInfo descriptor_set_create_info{};
         descriptor_set_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         descriptor_set_create_info.bindingCount = this->descriptor_layout_bindings.size();
@@ -187,6 +193,11 @@ namespace ZEROengine {
         return ret;
     }
 
+    // ---------------------------------------------------------------------------------------------
+
+    VulkanGraphicsPipelineBuffer::VulkanGraphicsPipelineBuffer() :
+    pipeline_buffer{}
+    {}
 
     std::vector<std::size_t> VulkanGraphicsPipelineBuffer::requestGraphicsPipelines(
         VkDevice &device, 

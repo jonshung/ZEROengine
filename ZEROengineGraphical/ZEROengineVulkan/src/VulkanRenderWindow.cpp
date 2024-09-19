@@ -5,6 +5,17 @@
 #include <vulkan/vk_enum_string_helper.h>
 
 namespace ZEROengine {
+    VulkanRenderWindow::VulkanRenderWindow() :
+    vulkan_context{nullptr},
+    vk_surface{},
+    vk_swapchain{},
+    vk_swapchain_images{},
+    vk_swapchain_image_views{},
+    vk_swapchain_framebuffers{},
+    vk_swapchain_renderpass{},
+    vk_swapchain_format{}
+    {}
+
     ZEROResult VulkanRenderWindow::initVulkanRenderWindow(VulkanContext *vulkan_context, const VkSurfaceKHR &surface) {
         this->vulkan_context = vulkan_context;
         this->vk_surface = surface;
@@ -16,9 +27,9 @@ namespace ZEROengine {
     }
 
     ZEROResult VulkanRenderWindow::initSwapChain() {
-        VkPhysicalDevice phys_device;
-        VkDevice device;
-        VkResult rslt;
+        VkPhysicalDevice phys_device{};
+        VkDevice device{};
+        VkResult rslt{};
 
         this->vulkan_context->getPhysicalDevice(phys_device);
         this->vulkan_context->getDevice(device);
@@ -99,7 +110,7 @@ namespace ZEROengine {
     }
 
     ZEROResult VulkanRenderWindow::initSwapChainRenderPass() {
-        VkDevice device;
+        VkDevice device{};
         this->vulkan_context->getDevice(device);
 
         std::array<VkAttachmentDescription, 2> attachments = {};
@@ -173,9 +184,9 @@ namespace ZEROengine {
     }
 
     ZEROResult VulkanRenderWindow::initSwapChainRenderTargets() {
-        VkDevice device;
+        VkDevice device{};
         this->vulkan_context->getDevice(device);
-        VkResult rslt;
+        VkResult rslt{};
 
         uint32_t image_count = 0;
         vkGetSwapchainImagesKHR(device, this->vk_swapchain, &image_count, nullptr);
@@ -244,7 +255,7 @@ namespace ZEROengine {
     }
 
     void VulkanRenderWindow::handleResize(const uint32_t &new_frame_width, const uint32_t &new_frame_height) {
-        VkDevice device;
+        VkDevice device{};
         this->vulkan_context->getDevice(device);
 
         this->setDimensions(new_frame_width, new_frame_height);
@@ -253,7 +264,7 @@ namespace ZEROengine {
     }
 
     void VulkanRenderWindow::cleanup_swapChain() {
-        VkDevice device;
+        VkDevice device{};
         this->vulkan_context->getDevice(device);
 
         for(auto &framebuffer : this->vk_swapchain_framebuffers) {
@@ -274,7 +285,7 @@ namespace ZEROengine {
     }
 
     void VulkanRenderWindow::cleanup() {
-        VkDevice device;
+        VkDevice device{};
         this->vulkan_context->getDevice(device);
         vkDestroyRenderPass(device, this->vk_swapchain_renderpass, nullptr);
         cleanup_swapChain();

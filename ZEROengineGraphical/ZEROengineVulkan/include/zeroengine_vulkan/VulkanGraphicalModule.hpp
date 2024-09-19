@@ -46,6 +46,7 @@ namespace ZEROengine {
         void recordAndSubmitStagingCommandBuffer();
 
     public:
+        VulkanGraphicalModule();
         ZEROResult getVulkanContext(VulkanContext **ret) {
             *ret = &this->vulkan_context;
             return { ZERO_SUCCESS, "" };

@@ -27,6 +27,7 @@ namespace ZEROengine {
 
     // initialization and cleanup procedures
     public:
+        VulkanRenderer();
         virtual ZEROResult initRenderer() override { return { ZERO_SUCCESS, "" }; }
         /**
          * @brief Before usage, any Vulkan Renderer should be initialized by calling this function.

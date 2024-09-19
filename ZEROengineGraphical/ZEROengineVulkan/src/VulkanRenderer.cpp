@@ -4,12 +4,17 @@
 #include <array>
 
 namespace ZEROengine {
+    VulkanRenderer::VulkanRenderer() :
+    vk_render_cmd_pool{},
+    vulkan_context{nullptr}
+    {}
+    
     ZEROResult VulkanRenderer::initVulkanRenderer(VulkanContext *vulkan_context) {
         this->vulkan_context = vulkan_context;
 
-        VkDevice device;
+        VkDevice device{};
         this->vulkan_context->getDevice(device);
-        VkQueueInfo graphical_queue;
+        VkQueueInfo graphical_queue{};
         this->vulkan_context->getGraphicalQueue(graphical_queue);
 
         // Command pools

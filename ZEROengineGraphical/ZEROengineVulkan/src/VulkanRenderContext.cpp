@@ -5,6 +5,14 @@
 #include <vulkan/vk_enum_string_helper.h>
 
 namespace ZEROengine {
+    VulkanRenderContext::VulkanRenderContext() :
+    vk_device_handle{},
+    vk_graphical_queue{},
+    vk_presentation_queue{},
+    vk_cmd_pool{},
+    vk_primary_cmd_buffer{}
+    {}
+
     void VulkanRenderContext::initVulkanRenderContext(const VulkanRenderContextCreateInfo &parameters) {
         this->vk_device_handle = parameters.device;
         this->vk_graphical_queue = parameters.graphical_queue_info;
@@ -64,7 +72,7 @@ namespace ZEROengine {
     }
 
     void VulkanRenderContext::end(const uint32_t &target_index) {
-        VkResult rslt;
+        VkResult rslt{};
         if ((rslt = vkEndCommandBuffer(this->vk_primary_cmd_buffer[target_index])) != VK_SUCCESS) {
             throw std::runtime_error("vkEndCommandBuffer() failed, err: " + std::string(string_VkResult(rslt)));
         }
