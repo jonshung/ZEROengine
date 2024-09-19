@@ -21,7 +21,9 @@ struct VulkanBuffer {
      * @param usage 
      * @param flags 
      */
-    VmaAllocationInfo allocate(VmaAllocator &allocator, const VkDeviceSize &size, const VkBufferUsageFlags &usage, const VmaAllocationCreateFlags &flags) {
+    VmaAllocationInfo allocate( VmaAllocator &allocator, const VkDeviceSize &size, 
+                                const VkBufferUsageFlags &usage, const VmaAllocationCreateFlags &flags,
+                                const VmaMemoryUsage mem_usage_flag = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE) {
         request_size = size;
         
         VkBufferCreateInfo buffer_info{};
@@ -33,7 +35,7 @@ struct VulkanBuffer {
         buffer_info.usage = usage;
 
         VmaAllocationCreateInfo alloc_info{};
-        alloc_info.usage = VMA_MEMORY_USAGE_AUTO;
+        alloc_info.usage = mem_usage_flag;
         alloc_info.flags = flags;
         
         VmaAllocationInfo alloc_ret_info;

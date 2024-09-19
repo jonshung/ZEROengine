@@ -27,8 +27,10 @@ static std::pair<char*, std::size_t> readFile(const std::string& filename) {
     return std::make_pair(buffer, f_size);
 }
 
+using namespace ZEROengine;
+
 int main() {
-    ZEROengine app;
+    ZEROengine::ZEROengine app;
 
     // initializing graphical module
     VulkanGraphicalModule *vk_graphical_module = new VulkanGraphicalModule;
@@ -40,17 +42,29 @@ int main() {
 
     auto frag_data = readFile(std::string(BINARY_PATH) + "/frag.spv");
     auto vert_data = readFile(std::string(BINARY_PATH) + "/vert.spv");
-    vk_graphical_module->getForwardPassPipelineTemplate().createGraphicsPipelinesLayout(vk_graphical_module->getVulkanContext().getDevice());
 
-    VulkanGraphicsPipelineBuffer &pipeline_buffer = vk_graphical_module->getGraphicsPipelineBuffer();
-    VulkanGraphicsPipelineTemplate &pipeline_template = vk_graphical_module->getForwardPassPipelineTemplate();
+    VulkanGraphicsPipelineBuffer *pipeline_buffer;
+    vk_graphical_module->getGraphicsPipelineBuffer(&pipeline_buffer);
+    VulkanGraphicsPipelineTemplate *pipeline_template;
+    vk_graphical_module->getForwardPassPipelineTemplate(&pipeline_template);
+
+    VulkanContext *vulkan_context;
+    VulkanBasicScreenRenderer *screen_renderer;
+    VulkanRenderWindow *render_window;
+    VkDevice device;
+    VkRenderPass renderpass;
+    vk_graphical_module->getVulkanContext(&vulkan_context);
+    vk_graphical_module->getScreenRenderer(&screen_renderer);
+    screen_renderer->getRenderWindow(&render_window);
+    render_window->getRenderPass(renderpass);
+    vulkan_context->getDevice(device);
 
     std::vector<ShaderData> shader_data = { {vert_data, frag_data} };
     std::vector<std::size_t> pipeline_hash = 
-    pipeline_buffer.requestGraphicsPipelines(
-        vk_graphical_module->getVulkanContext().getDevice(), 
-        pipeline_template,
-        vk_graphical_module->getScreenRenderer().requestSwapChainRenderPass(),
+    pipeline_buffer->requestGraphicsPipelines(
+        device, 
+        *pipeline_template,
+        renderpass,
         shader_data);
     
     // freeing allocated buffers  

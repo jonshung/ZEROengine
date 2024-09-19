@@ -15,7 +15,7 @@ set(ZEROengineVulkan_Sources
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanPipelineBuffer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanRenderContext.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanRenderer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanRenderTarget.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanRenderWindow.cpp
 )
 
 # module declaration

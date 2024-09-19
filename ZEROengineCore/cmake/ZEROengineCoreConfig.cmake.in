@@ -1,7 +1,0 @@
-set(ZEROENGINECORE x.y.z)
-
-@PACKAGE_INIT@
-
-set_and_check(ZEROENGINECORE_INCLUDE_DIR "@PACKAGE_ZEROengineCoreInclude@")
-
-check_required_components(ZEROengineCore)

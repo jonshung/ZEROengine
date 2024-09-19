@@ -1,6 +1,0 @@
-#ifndef ZEROENGINE_COMPILER_DEFINE_H
-#define ZEROENGINE_COMPILER_DEFINE_H
-
-#define ZEROengine_FALLTHROUGH [[fallthrough]]
-
-#endif

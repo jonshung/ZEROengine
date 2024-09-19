@@ -11,9 +11,7 @@ struct VkQueueInfo {
     uint32_t queueFamilyIndex;
 };
 
-struct VulkanSecondaryCommandBuffer {
-    VkCommandBuffer buffer;
-};
+typedef VkCommandBuffer VulkanSecondaryCommandBuffer;
 
 struct BaseVertex {
     glm::vec2 v_pos;
@@ -48,6 +46,29 @@ public:
         attributes_desc[1].location = 1;
         attributes_desc[1].offset = offsetof(BaseVertex, v_color);
         return attributes_desc;
+    }
+};
+
+struct BaseUniformObject {
+    glm::mat4 model;
+    glm::mat4 view;
+    glm::mat4 projection;
+};
+
+class VulkanUniformBufferLayout {
+public:
+    virtual VkDescriptorSetLayoutBinding bindingDescription(const uint32_t &binding_index) = 0;
+};
+
+class VulkanBaseUniformBufferLayout : public VulkanUniformBufferLayout {
+public:
+    virtual VkDescriptorSetLayoutBinding bindingDescription(const uint32_t &binding_index) override {
+        VkDescriptorSetLayoutBinding ubo_layout_binding{};
+        ubo_layout_binding.binding = binding_index;
+        ubo_layout_binding.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
+        ubo_layout_binding.descriptorCount = 1;
+        ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
+        return ubo_layout_binding;
     }
 };
 
