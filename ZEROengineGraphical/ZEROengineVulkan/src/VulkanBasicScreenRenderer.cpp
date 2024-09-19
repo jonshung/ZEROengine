@@ -24,6 +24,7 @@ namespace ZEROengine {
     ZEROResult VulkanBasicScreenRenderer::initVulkanRenderer(VulkanContext *vulkan_context) {
         VulkanRenderer::initVulkanRenderer(vulkan_context);
         allocateSecondaryCommandBuffer(this->getMaxQueuedFrame());
+        createSyncObjects(this->getMaxQueuedFrame());
         return { ZERO_SUCCESS, "" };
     }
 
@@ -59,7 +60,7 @@ namespace ZEROengine {
     }
 
     VkPresentInfoKHR VulkanBasicScreenRenderer::getPresentImageInfo() {
-        VkSwapchainKHR swapchain{};
+        VkSwapchainKHR *swapchain{};
         this->render_window.getSwapchain(swapchain);
 
         VkPresentInfoKHR present_info{};
@@ -67,7 +68,7 @@ namespace ZEROengine {
         present_info.waitSemaphoreCount = 1;
         present_info.pWaitSemaphores = &this->vk_rendering_mutex[this->current_frame_index];
         present_info.swapchainCount = 1;
-        present_info.pSwapchains = &swapchain;
+        present_info.pSwapchains = swapchain;
         present_info.pImageIndices = &this->acquired_swapchain_index;
         present_info.pResults = nullptr;
         return present_info;
@@ -174,6 +175,20 @@ namespace ZEROengine {
         vkResetCommandBuffer(this->frame_cmd_buffers[this->current_frame_index], 0);
     }
 
+    VkResult VulkanBasicScreenRenderer::tryAcquireSwapchainImage() {
+        VkDevice device{};
+        VkSwapchainKHR *swapchain{};
+        this->vulkan_context->getDevice(device);
+        this->render_window.getSwapchain(swapchain);
+        return vkAcquireNextImageKHR(
+            device, *swapchain, 
+            UINT64_MAX, 
+            this->vk_image_mutex[this->current_frame_index], 
+            VK_NULL_HANDLE, 
+            &this->acquired_swapchain_index
+        );
+    }
+
     ZEROResult VulkanBasicScreenRenderer::record(VulkanGraphicsPipelineBuffer *const pipeline_buffer, std::vector<VulkanGraphicsRecordingInfo> &ret) {
         if(!this->vertices_data || this->vertices_buffer_handles.size() == 0 ||
             !this->index_data || this->index_buffer_handle == VK_NULL_HANDLE) {
@@ -236,6 +251,7 @@ namespace ZEROengine {
 
     void VulkanBasicScreenRenderer::cleanup() {
         this->cleanup_syncObjects();
+        this->render_window.cleanup();
         VulkanRenderer::cleanup();
     }
 }

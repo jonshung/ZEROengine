@@ -36,7 +36,7 @@ namespace ZEROengine {
          */
         virtual ZEROResult initVulkanRenderer(VulkanContext *vulkan_context);
         virtual void cleanup() {
-            VkDevice device;
+            VkDevice device{};
             this->vulkan_context->getDevice(device);
             vkDestroyCommandPool(device, this->vk_render_cmd_pool, nullptr);
         }

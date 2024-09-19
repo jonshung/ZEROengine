@@ -39,7 +39,7 @@ namespace ZEROengine {
     public:
         VulkanRenderWindow();
         ZEROResult initVulkanRenderWindow(VulkanContext *vulkan_context, const VkSurfaceKHR &surface);
-        ZEROResult getSwapchain(VkSwapchainKHR &ret) const;
+        ZEROResult getSwapchain(VkSwapchainKHR* &ret);
         ZEROResult getFramebuffer(const uint32_t &index, VkFramebuffer &ret) const;
         ZEROResult getRenderPass(VkRenderPass &ret) const;
         virtual void handleResize(const uint32_t &new_frame_width, const uint32_t &new_frame_height) override;

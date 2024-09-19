@@ -94,8 +94,8 @@ namespace ZEROengine {
         return { ZERO_SUCCESS, "" };
     }
 
-    ZEROResult VulkanRenderWindow::getSwapchain(VkSwapchainKHR &ret) const {
-        ret = this->vk_swapchain;
+    ZEROResult VulkanRenderWindow::getSwapchain(VkSwapchainKHR* &ret) {
+        ret = &this->vk_swapchain;
         return { ZERO_SUCCESS, "" };
     }
 
@@ -286,8 +286,11 @@ namespace ZEROengine {
 
     void VulkanRenderWindow::cleanup() {
         VkDevice device{};
+        VkInstance instance{};
         this->vulkan_context->getDevice(device);
+        this->vulkan_context->getInstance(instance);
         vkDestroyRenderPass(device, this->vk_swapchain_renderpass, nullptr);
         cleanup_swapChain();
+        vkDestroySurfaceKHR(instance, this->vk_surface, nullptr);
     }
 } // namespace ZEROengine

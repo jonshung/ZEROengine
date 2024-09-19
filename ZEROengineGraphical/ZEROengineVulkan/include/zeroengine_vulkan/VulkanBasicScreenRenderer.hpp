@@ -80,6 +80,7 @@ namespace ZEROengine {
     public:
         // allocate additional concurrency lock for synchronization
         void createSyncObjects(const uint32_t &count);
+        VkResult tryAcquireSwapchainImage();
 
         VkFence getPresentationLock(const uint32_t &target_index) {
             return this->vk_presentation_mutex[target_index];

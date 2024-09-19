@@ -63,11 +63,13 @@ namespace ZEROengine {
         vulkan_context->initVulkan(surface);
 
         // initializing ScreenRenderer and resources
+        screen_renderer->initVulkanRenderer(vulkan_context);
         VulkanRenderWindow *render_window{};
         screen_renderer->getRenderWindow(&render_window);
         render_window->initVulkanRenderWindow(vulkan_context, surface);
         render_window->setDimensions(w, h);
 
+        // VMA
         VkPhysicalDevice vk_physical{};
         VkDevice vk_device{};
         vulkan_context->getPhysicalDevice(vk_physical);
@@ -81,9 +83,6 @@ namespace ZEROengine {
         if((rslt = vmaCreateAllocator(&vma_create, &this->vma_alloc)) != VK_SUCCESS) {
             throw std::runtime_error("vmaCreateAllocator() failed, error: cannot create VmaAllocator");
         }
-
-        // Screen Renderer
-        screen_renderer->initVulkanRenderer(vulkan_context);
         
         // Rendering contexts
         VkQueueInfo graphical_queue{}, presentation_queue{};
@@ -201,7 +200,7 @@ namespace ZEROengine {
         VulkanRenderContext &render_context = this->vulkan_render_context;
 
         this->vulkan_context.waitForFence(screen_renderer->getPresentationLock(current_frame_index));
-        if(window_ctx->resized()) {
+        if(window_ctx->resized() || screen_renderer->tryAcquireSwapchainImage() == VK_ERROR_OUT_OF_DATE_KHR) {
             handleResize();
             return;
         }
@@ -372,7 +371,9 @@ namespace ZEROengine {
 
         screen_renderer->cleanup();
         render_context->cleanup();
-        this->vulkan_context.cleanup();
         this->window_context->cleanup();
+
+        // always last
+        this->vulkan_context.cleanup();
     }
 } // namespace ZEROengine

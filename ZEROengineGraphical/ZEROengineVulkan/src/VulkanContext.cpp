@@ -220,7 +220,7 @@ namespace ZEROengine {
         if(!checkDeviceExtensionSupport(phys_device)) return 0;
         
         bool swapChainAdequate = false;
-        SwapChainSupportDetails swapChainSupport = querySwapChainSupport(phys_device);
+        SwapChainSupportDetails swapChainSupport = querySwapChainSupport_Surface(surface, phys_device);
         swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.present_modes.empty();
         if(!swapChainAdequate) return 0;
         
