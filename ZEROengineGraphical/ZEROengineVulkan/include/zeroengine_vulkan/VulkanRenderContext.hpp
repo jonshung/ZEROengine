@@ -7,6 +7,7 @@
 #include <vector>
 
 #include "zeroengine_vulkan/VulkanCommand.hpp"
+#include "zeroengine_vulkan/VulkanWindow.hpp"
 
 namespace ZEROengine {
     struct VulkanRenderContextCreateInfo {
@@ -27,35 +28,28 @@ namespace ZEROengine {
         VkQueueInfo vk_graphical_queue;
         VkQueueInfo vk_presentation_queue;
 
+    // command buffers and synchronization locks
+    private:
+        std::vector<VulkanCommandRecordingInfo> pending_recording;
+    
+    private:
+        std::vector<VkPresentInfoKHR> pending_window_present;
+
     // public synchronization api for application draw call
     public:
         VulkanRenderContext();
         void initVulkanRenderContext(const VulkanRenderContextCreateInfo &parameters);
         
-        void begin(const uint32_t &target_index);
-        void recordRenderPassCommandBuffer(
-                            const uint32_t &target_index,  
-                            const VulkanGraphicsRecordingInfo &recording
-        );
-        void recordTransferCommandBuffer(const uint32_t &target_index, const VulkanTransferRecordingInfo &recording);
-        void end(const uint32_t &target_index);
-        void submit(const uint32_t &target_index, VkSemaphore semaphore = VK_NULL_HANDLE, VkSemaphore signal_semaphore = VK_NULL_HANDLE, VkFence fence = VK_NULL_HANDLE);
-        void reset(const uint32_t &target_index);
-        void present(const VkPresentInfoKHR &present_info);
+        void queueCommandRecording(const VulkanCommandRecordingInfo &recording_info);
+        void queuePresent(const VkPresentInfoKHR &presenting_info);
 
-        void waitOnQueue() {
+        void submit();
+
+        void waitOnGraphicalQueue() {
             vkQueueWaitIdle(this->vk_graphical_queue.queue);
         }
 
-        void cleanup_commandBuffers();
         void cleanup();
-
-    // command pool and buffers
-    private:
-        VkCommandPool vk_cmd_pool;
-        std::vector<VkCommandBuffer> vk_primary_cmd_buffer;
-
-        void createCommandPool(const uint32_t &queueFamilyIndex);
     }; // class VulkanRenderContext
 } // namespace ZEROengine
 

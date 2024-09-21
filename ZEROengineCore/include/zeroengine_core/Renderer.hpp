@@ -6,7 +6,7 @@
 namespace ZEROengine {
     class Renderer {
     public:
-        virtual ZEROResult initRenderer() = 0;
+        virtual void initRenderer() = 0;
     }; // class Renderer
 } // namespace ZEROengine
 

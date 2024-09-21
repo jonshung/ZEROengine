@@ -9,16 +9,9 @@
 #include <optional>
 #include <unordered_map>
 
-#include "zeroengine_vulkan/Vulkan_define.hpp"
+#include "zeroengine_vulkan/VulkanDefines.hpp"
 #include "zeroengine_core/GraphicsAPIContext.hpp"
 #include "zeroengine_core/ZEROengineDefines.hpp"
-
-/* future support
-// WSI intergration
-#if defined(VK_USE_PLATFORM_XLIB_KHR)
-#include <X11/Xlib.h>
-#endif
-*/
 
 namespace ZEROengine {
     // required device extensions
@@ -60,8 +53,8 @@ namespace ZEROengine {
     // initialization and cleanup procedures
     public:
         static constexpr const char* getRequiredExtension() {
-    #if defined(VK_USE_PLATFORM_XLIB_KHR)
-            return VK_KHR_XLIB_SURFACE_EXTENSION_NAME;
+    #if defined(VK_USE_PLATFORM_XCB_KHR)
+            return VK_KHR_XCB_SURFACE_EXTENSION_NAME;
     #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
             return VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME;
     #elif defined(VK_USE_PLATFORM_WIN32_KHR)
@@ -73,11 +66,16 @@ namespace ZEROengine {
         }
 
         VulkanContext();
-        ZEROResult initVulkan(const VkSurfaceKHR &surface);
+        void initVulkan();
 
-        ZEROResult VKInit_initInstance();
-        ZEROResult VKInit_initPhysicalDevice(const VkSurfaceKHR &surface);
-        ZEROResult VKInit_initLogicalDevice(const VkSurfaceKHR &surface);
+        void VKInit_initInstance();
+        void VKInit_initPhysicalDevice();
+        /**
+         * @brief This method should be called externally by either windowing system initialization process.
+         * 
+         * @param surface 
+         */
+        void VKInit_initLogicalDevice(const VkSurfaceKHR &surface);
         void cleanup() override;
 
     private:
@@ -99,8 +97,8 @@ namespace ZEROengine {
         bool validateExtensionsSupport(const uint32_t &extension_count, const char*const *extensions, std::string *ret = nullptr);
 
         // physical device enumeration and selection
-        ZEROResult selectPhysicalDevice(const VkSurfaceKHR &surface, const std::vector<VkPhysicalDevice>& devices_list);
-        uint32_t evaluatePhysicalDeviceSuitability(const VkSurfaceKHR &surface, const VkPhysicalDevice &phys_device);
+        void selectPhysicalDevice(const std::vector<VkPhysicalDevice>& devices_list);
+        uint32_t evaluatePhysicalDeviceSuitability(const VkPhysicalDevice &phys_device);
         bool checkDeviceExtensionSupport(const VkPhysicalDevice &phys_device);
 
         // queue families enumeration and selection
@@ -109,52 +107,20 @@ namespace ZEROengine {
         
     // basic wrapping interface for applications to communicate/synchronize with Vulkan per-frame rendering
     public:
-        ZEROResult getInstance(VkInstance &ret) {
-            if(this->vk_instance == VK_NULL_HANDLE) {
-                return { ZERO_VULKAN_NULL_HANDLE, "Vulkan instance handle is null." };
-            }
-            ret = this->vk_instance;
-            return { ZERO_SUCCESS, "" };
-        }
-        ZEROResult getGraphicalQueue(VkQueueInfo &ret) {
-            if(this->vk_instance == VK_NULL_HANDLE) {
-                return { ZERO_VULKAN_NULL_HANDLE, "Vulkan instance handle is null." };
-            }
-            if(this->vk_graphics_queue.queue == VK_NULL_HANDLE) {
-                return { ZERO_VULKAN_NULL_HANDLE, "Vulkan graphics queue handle is null." };
-            }
-            ret = this->vk_graphics_queue;
-            return { ZERO_SUCCESS, "" };
-        }
-        ZEROResult getPresentationQueue(VkQueueInfo &ret) {
-            if(this->vk_instance == VK_NULL_HANDLE) {
-                return { ZERO_VULKAN_NULL_HANDLE, "Vulkan instance handle is null." };
-            }
-            if(this->vk_graphics_queue.queue == VK_NULL_HANDLE) {
-                return { ZERO_VULKAN_NULL_HANDLE, "Vulkan presentation queue handle is null." }; 
-            }
-            ret = this->vk_presentation_queue;
-            return { ZERO_SUCCESS, "" };
-        }
-        ZEROResult getDevice(VkDevice &ret) {
-            if(this->vk_instance == VK_NULL_HANDLE) {
-                return { ZERO_VULKAN_NULL_HANDLE, "Vulkan instance handle is null." };
-            }
+        VkInstance getInstance();
+        VkQueueInfo* getGraphicalQueue();
+        VkQueueInfo* getPresentationQueue();
+        VkDevice getDevice() {
             if(this->vk_device == VK_NULL_HANDLE) {
-                return { ZERO_VULKAN_NULL_HANDLE, "Vulkan logical device handle is null." };
+                ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Vulkan logical device handle is null.");
             }
-            ret = this->vk_device;
-            return { ZERO_SUCCESS, "" };
+            return this->vk_device;
         }
-        ZEROResult getPhysicalDevice(VkPhysicalDevice &ret) {
-            if(this->vk_instance == VK_NULL_HANDLE) {
-                return { ZERO_VULKAN_NULL_HANDLE, "Vulkan instance handle is null." };
-            }
+        VkPhysicalDevice getPhysicalDevice() {
             if(this->vk_physical_device == VK_NULL_HANDLE) {
-                return { ZERO_VULKAN_NULL_HANDLE, "Vulkan physical device handle is null." };
+                ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Vulkan physical device handle is null.");
             }
-            ret = this->vk_physical_device;
-            return { ZERO_SUCCESS, "" };
+            return this->vk_physical_device;
         }
         SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice &phys_device);
         SwapChainSupportDetails querySwapChainSupport_Surface(const VkSurfaceKHR &surface, const VkPhysicalDevice &phys_device);
@@ -164,6 +130,9 @@ namespace ZEROengine {
 
         void waitForFence(VkFence fence);
         void releaseFence(VkFence fence);
+        void stall() {
+            vkDeviceWaitIdle(this->vk_device);
+        }
     }; // class VulkanContext
 } // namespace ZEROengine
 #endif // #ifndef VULKAN_RENDERING_CONTEXT_H

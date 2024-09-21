@@ -1,5 +1,5 @@
-#ifndef ZEROENGINE_ERRORS_H
-#define ZEROENGINE_ERRORS_H
+#ifndef ZEROENGINE_DEFINES_H
+#define ZEROENGINE_DEFINES_H
 
 #include <stdexcept>
 #include <string>
@@ -13,23 +13,7 @@ typedef enum ZEROResultEnum {
     ZERO_SUCCESS = 0,
     ZERO_FAILED = 1,
     ZERO_NULL_POINTER = 2,
-
-    // Vulkan Graphics API Results
-    ZERO_VULKAN_NULL_HANDLE = 10001,
-    ZERO_VULKAN_VALIDATION_NOT_EXISTS = 10002,
-    ZERO_VULKAN_VALIDATION_INSUFFICIENT = 10003,
-
-    ZERO_VULKAN_CREATE_INSTANCE_FAILED = 10010,
-
-    ZERO_VULKAN_NO_PHYSICAL_DEVICE = 10021,
-    ZERO_VULKAN_NO_SUITABLE_PHYS_DEVICE = 10022,
-    ZERO_VULKAN_CREATE_SURFACE_FAILED = 10023,
-
-    ZERO_VULKAN_QUEUE_NOT_EXISTS = 10031,
-
-    ZERO_VULKAN_CREATE_POOL_FAILED = 10041,
-
-    ZERO_VULKAN_RENDERER_OUT_OF_DATE = 10051,
+    ZERO_GRAPHICAL_ERROR = 1001,
 } ZEROResultEnum;
 
 struct ZEROResult {
@@ -55,11 +39,10 @@ typedef enum ZEROPlatform {
 #endif
 
 // helper macros
-#define ZERO_EXCEPTION(err_num, exception_string) do { \
-    std::string __err_string = std::string(exception_string); \
-    uint32_t __err_num = static_cast<uint32_t>(err_num); \
-    std::string __ret_string = ""; \
-    __ret_string += std::string(ZERO_FUNC_NAME) + " failed, error(" + std::to_string(__err_num) + "): " + __err_string; \
+#define ZERO_EXCEPT(err_num, exception_string) do { \
+    std::string __ret_string = std::string(ZERO_FUNC_NAME) + \
+    " failed, error(" + std::to_string(static_cast<uint32_t>(err_num)) + \
+    "): " + std::string(exception_string); \
     throw std::runtime_error(__ret_string); \
 } while(0)
 
@@ -70,16 +53,16 @@ typedef enum ZEROPlatform {
     } \
 } while(0)
 
-#define ZERO_CHECK_RESULT_EXCEPTION(err) do { \
+#define ZERO_CHECK_RESULT_EXCEPT(err) do { \
     ZEROResult __err = err; \
     if(__err.result_code) { \
-        ZERO_EXCEPTION(__err.result_code, __err.result_string); \
+        ZERO_EXCEPT(__err.result_code, __err.result_string); \
     } \
 } while(0)
 
-#define ZERO_CHECK_NULL_EXCEPTION(p) do { \
+#define ZERO_CHECK_NULL_EXCEPT(p) do { \
     if(!p) {\
-        ZERO_EXCEPTION(ZERO_NULL_POINTER, "Null pointer"); \
+        ZERO_EXCEPT(ZERO_NULL_POINTER, #p + "Null pointer"); \
     } \
 } while (0)
 

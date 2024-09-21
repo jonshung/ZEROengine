@@ -7,8 +7,6 @@
 namespace ZEROengine {
     VulkanBasicScreenRenderer::VulkanBasicScreenRenderer() :
     VulkanRenderer(),
-    frame_cmd_buffers{},
-    render_window{},
     current_frame_index{0},
     acquired_swapchain_index{},
     vertices_data{nullptr},
@@ -21,17 +19,20 @@ namespace ZEROengine {
     vk_presentation_mutex{}
     {}
 
-    ZEROResult VulkanBasicScreenRenderer::initVulkanRenderer(VulkanContext *vulkan_context) {
+    void VulkanBasicScreenRenderer::initVulkanRenderer(VulkanContext *vulkan_context) {
         VulkanRenderer::initVulkanRenderer(vulkan_context);
-        allocateSecondaryCommandBuffer(this->getMaxQueuedFrame());
+        allocateCommandBuffer(this->getMaxQueuedFrame());
         createSyncObjects(this->getMaxQueuedFrame());
-        return { ZERO_SUCCESS, "" };
+    }
+
+
+    void VulkanBasicScreenRenderer::bindRenderWindow(VulkanWindow *window) {
+        this->render_window = window;
     }
 
     void VulkanBasicScreenRenderer::createSyncObjects(const uint32_t &count) {
-        VkDevice device{};
-        this->vulkan_context->getDevice(device);
-
+        VkDevice device = this->vulkan_context->getDevice();
+        
         uint32_t start_index = this->vk_image_mutex.size();
         this->vk_image_mutex.resize(start_index + count);
         this->vk_rendering_mutex.resize(start_index + count);
@@ -39,29 +40,19 @@ namespace ZEROengine {
 
         VkSemaphoreCreateInfo semaphore_create{};
         semaphore_create.sType = VK_STRUCTURE_TYPE_SEMAPHORE_CREATE_INFO;
-        VkResult rslt;
         for(uint32_t i = start_index; i < this->vk_image_mutex.size(); ++i) {
-            rslt = vkCreateSemaphore(device, &semaphore_create, nullptr, &this->vk_image_mutex[i]);
-            if(rslt != VK_SUCCESS) {
-                throw std::runtime_error("vkCreateSemaphore() failed, err: " + std::string(string_VkResult(rslt)));
-            }
-            rslt = vkCreateSemaphore(device, &semaphore_create, nullptr, &this->vk_rendering_mutex[i]);
-            if(rslt != VK_SUCCESS) {
-                throw std::runtime_error("vkCreateSemaphore() failed, err: " + std::string(string_VkResult(rslt)));
-            }
+            ZERO_VK_CHECK_EXCEPT(vkCreateSemaphore(device, &semaphore_create, nullptr, &this->vk_image_mutex[i]));
+            ZERO_VK_CHECK_EXCEPT(vkCreateSemaphore(device, &semaphore_create, nullptr, &this->vk_rendering_mutex[i]));
+
             VkFenceCreateInfo fence_create{};
             fence_create.sType = VK_STRUCTURE_TYPE_FENCE_CREATE_INFO;
             fence_create.flags = VK_FENCE_CREATE_SIGNALED_BIT;
-            rslt = vkCreateFence(device, &fence_create, nullptr, &this->vk_presentation_mutex[i]);
-            if(rslt != VK_SUCCESS) {
-                throw std::runtime_error("vkCreateFence() failed, err: " + std::string(string_VkResult(rslt)));
-            }
+            ZERO_VK_CHECK_EXCEPT(vkCreateFence(device, &fence_create, nullptr, &this->vk_presentation_mutex[i]));
         }
     }
 
     VkPresentInfoKHR VulkanBasicScreenRenderer::getPresentImageInfo() {
-        VkSwapchainKHR *swapchain{};
-        this->render_window.getSwapchain(swapchain);
+        VkSwapchainKHR *swapchain = this->render_window->getSwapchain();
 
         VkPresentInfoKHR present_info{};
         present_info.sType = VK_STRUCTURE_TYPE_PRESENT_INFO_KHR;
@@ -87,6 +78,25 @@ namespace ZEROengine {
         if(!g_pipeline_buffer) return;
         std::unordered_map<std::size_t, VulkanGraphicsPipelineObject> &pipelines = g_pipeline_buffer->getAllPipelines();
         if(pipelines.size() == 0) return;
+
+        VkFramebuffer current_swapchain_frame = this->render_window->getFramebuffer(this->acquired_swapchain_index);
+        VkRenderPass swapchain_renderpass = this->render_window->getRenderPass();
+        VkExtent2D render_area{};
+        this->render_window->getDimensions(render_area.width, render_area.height);
+
+        VkRenderPassBeginInfo render_pass_begin{};
+        render_pass_begin.sType = VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO;
+        render_pass_begin.framebuffer = current_swapchain_frame;
+
+        render_pass_begin.renderPass = swapchain_renderpass;
+        render_pass_begin.renderArea.extent = render_area;
+
+        VkClearValue clear_color = {{{0.0f, 0.0f, 0.0f, 1.0f}}};
+        render_pass_begin.clearValueCount = 1;
+        render_pass_begin.pClearValues = &clear_color;
+        
+        vkCmdBeginRenderPass(this->frame_cmd_buffers[this->current_frame_index], &render_pass_begin, VK_SUBPASS_CONTENTS_INLINE);
+
         VulkanGraphicsPipelineObject& testing_pipeline = pipelines.begin()->second;
 
         // Binding Pipeline
@@ -123,29 +133,16 @@ namespace ZEROengine {
         vkCmdDrawIndexed(
             this->frame_cmd_buffers[current_frame_index], // command buffer
             static_cast<uint32_t>(this->index_data->size()), 1, 0, 0, 0);
+        
+        vkCmdEndRenderPass(this->frame_cmd_buffers[current_frame_index]);
     }
 
     void VulkanBasicScreenRenderer::begin() {
-        VkFramebuffer current_swapchain_frame;{}
-        this->render_window.getFramebuffer(this->acquired_swapchain_index, current_swapchain_frame);
-        VkRenderPass swapchain_renderpass{};
-        this->render_window.getRenderPass(swapchain_renderpass);
-
         VkCommandBufferBeginInfo cmd_buffer_begin{};
         cmd_buffer_begin.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_BEGIN_INFO;
-        cmd_buffer_begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT | VK_COMMAND_BUFFER_USAGE_RENDER_PASS_CONTINUE_BIT;
+        cmd_buffer_begin.flags = VK_COMMAND_BUFFER_USAGE_ONE_TIME_SUBMIT_BIT;
 
-        VkCommandBufferInheritanceInfo inheritance_info{};
-        inheritance_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_INHERITANCE_INFO;
-        inheritance_info.framebuffer = current_swapchain_frame;
-        inheritance_info.renderPass = swapchain_renderpass;
-        inheritance_info.subpass = 0;
-        cmd_buffer_begin.pInheritanceInfo = &inheritance_info;
-
-        VkResult rslt = vkBeginCommandBuffer(this->frame_cmd_buffers[this->current_frame_index], &cmd_buffer_begin);
-        if(rslt != VK_SUCCESS) {
-            throw std::runtime_error("vkBeginCommandBuffer() failed, err: " + std::string(string_VkResult(rslt)));
-        }
+        ZERO_VK_CHECK_EXCEPT(vkBeginCommandBuffer(this->frame_cmd_buffers[this->current_frame_index], &cmd_buffer_begin));
     }
 
     void VulkanBasicScreenRenderer::configureViewportAndScissor(VkExtent2D &extent) {
@@ -165,31 +162,30 @@ namespace ZEROengine {
     }
 
     void VulkanBasicScreenRenderer::end() {
-        VkResult rslt{};
-        if ((rslt = vkEndCommandBuffer(this->frame_cmd_buffers[this->current_frame_index])) != VK_SUCCESS) {
-            throw std::runtime_error("vkEndCommandBuffer() failed, err: " + std::string(string_VkResult(rslt)));
-        }
+        ZERO_VK_CHECK_EXCEPT(vkEndCommandBuffer(this->frame_cmd_buffers[this->current_frame_index]));
     }
 
     void VulkanBasicScreenRenderer::reset() {
         vkResetCommandBuffer(this->frame_cmd_buffers[this->current_frame_index], 0);
     }
 
-    VkResult VulkanBasicScreenRenderer::tryAcquireSwapchainImage() {
-        VkDevice device{};
-        VkSwapchainKHR *swapchain{};
-        this->vulkan_context->getDevice(device);
-        this->render_window.getSwapchain(swapchain);
-        return vkAcquireNextImageKHR(
+    void VulkanBasicScreenRenderer::tryAcquireSwapchainImage() {
+        VkDevice device = this->vulkan_context->getDevice();
+        VkSwapchainKHR *swapchain = this->render_window->getSwapchain();
+        
+        VkResult rslt = vkAcquireNextImageKHR(
             device, *swapchain, 
             UINT64_MAX, 
             this->vk_image_mutex[this->current_frame_index], 
             VK_NULL_HANDLE, 
             &this->acquired_swapchain_index
-        );
+        ); // handle resize
+        if(rslt == VK_ERROR_OUT_OF_DATE_KHR) {
+            this->render_window->handleMoveOrResize();
+        }
     }
 
-    ZEROResult VulkanBasicScreenRenderer::record(VulkanGraphicsPipelineBuffer *const pipeline_buffer, std::vector<VulkanGraphicsRecordingInfo> &ret) {
+    ZEROResult VulkanBasicScreenRenderer::record(VulkanGraphicsPipelineBuffer *const pipeline_buffer, VulkanCommandRecordingInfo &ret) {
         if(!this->vertices_data || this->vertices_buffer_handles.size() == 0 ||
             !this->index_data || this->index_buffer_handle == VK_NULL_HANDLE) {
             throw std::runtime_error("VulkanBasicScreenRenderer::record() failed, error: vertices data or vertice buffer handle is not mapped");
@@ -197,22 +193,21 @@ namespace ZEROengine {
         this->reset();
         this->begin();
         VkExtent2D render_area{};
-        this->render_window.getDimensions(render_area.width, render_area.height);
+        this->render_window->getDimensions(render_area.width, render_area.height);
         this->configureViewportAndScissor(render_area);
         this->draw(pipeline_buffer);
         this->end();
-        VkRenderPass renderpass{};
-        this->render_window.getRenderPass(renderpass);
-        VkFramebuffer framebuffer{};
-        this->render_window.getFramebuffer(this->acquired_swapchain_index, framebuffer);
-        ret.push_back({ this->frame_cmd_buffers[this->current_frame_index], renderpass, render_area, framebuffer });
+        ret.cmd = { this->frame_cmd_buffers[this->current_frame_index] };
+        ret.wait_semaphores = { this->getImageLock(this->current_frame_index) };
+        ret.wait_stages = { VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT };
+        ret.signal_semaphores = { this->getRenderingLock(this->current_frame_index) };
+        ret.host_signal_fence = { this->getPresentationLock(this->current_frame_index) };
         return { ZERO_SUCCESS, "" };
     }
 
-    void VulkanBasicScreenRenderer::allocateSecondaryCommandBuffer(const uint32_t &count) {
+    void VulkanBasicScreenRenderer::allocateCommandBuffer(const uint32_t &count) {
         if(count == 0) return;
-        VkDevice device{};
-        this->vulkan_context->getDevice(device);
+        VkDevice device = this->vulkan_context->getDevice();
 
         std::size_t emplace_index = this->frame_cmd_buffers.size();
         this->frame_cmd_buffers.resize(emplace_index + count);
@@ -221,13 +216,9 @@ namespace ZEROengine {
         VkCommandBufferAllocateInfo alloc_info{};
         alloc_info.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
         alloc_info.commandPool = this->vk_render_cmd_pool;
-        alloc_info.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+        alloc_info.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         alloc_info.commandBufferCount = count;
-
-        VkResult rslt = vkAllocateCommandBuffers(device, &alloc_info, cmd_buffer_emplace.data());
-        if(rslt != VK_SUCCESS) {
-            throw std::runtime_error("vkAllocateCommandBuffers() failed, err: " + std::string(string_VkResult(rslt)));
-        }
+        ZERO_VK_CHECK_EXCEPT(vkAllocateCommandBuffers(device, &alloc_info, cmd_buffer_emplace.data()));
 
         std::size_t ret_index = 0;
         for(std::size_t i = emplace_index; i < this->frame_cmd_buffers.size(); ++i) {
@@ -236,9 +227,18 @@ namespace ZEROengine {
         }
     }
 
+    VkFence VulkanBasicScreenRenderer::getPresentationLock(const uint32_t &target_index) {
+        return this->vk_presentation_mutex[target_index];
+    }
+    VkSemaphore VulkanBasicScreenRenderer::getImageLock(const uint32_t &target_index) {
+        return this->vk_image_mutex[target_index];
+    }
+    VkSemaphore VulkanBasicScreenRenderer::getRenderingLock(const uint32_t &target_index) {
+        return this->vk_rendering_mutex[target_index];
+    }
+
     void VulkanBasicScreenRenderer::cleanup_syncObjects() {
-        VkDevice device{};
-        this->vulkan_context->getDevice(device);
+        VkDevice device = this->vulkan_context->getDevice();
 
         // concurrency locks count should be synchronized
         uint32_t buffer_count = this->vk_image_mutex.size();
@@ -251,7 +251,7 @@ namespace ZEROengine {
 
     void VulkanBasicScreenRenderer::cleanup() {
         this->cleanup_syncObjects();
-        this->render_window.cleanup();
+        this->render_window->cleanup();
         VulkanRenderer::cleanup();
     }
 }

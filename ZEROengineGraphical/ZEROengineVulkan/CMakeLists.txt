@@ -6,16 +6,19 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 # required libraries
 find_package(Vulkan REQUIRED)
 find_package(glm CONFIG REQUIRED)
+find_package(X11 REQUIRED)
 
 set(ZEROengineVulkan_Sources
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VmaUsage.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanBasicScreenRenderer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanContext.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanGraphicalModule.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanPipelineBuffer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanGraphicsPipelineBuffer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanGraphicsPipelineTemplate.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanRenderContext.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanRenderer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanRenderWindow.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanWindow.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/windowing/X11/VulkanXCBWindow.cpp
 )
 
 # module declaration
@@ -54,6 +57,6 @@ elseif(ANDROID)
 elseif(OGRE_USE_WAYLAND)
     target_compile_definitions(ZEROengineVulkan PRIVATE VK_USE_PLATFORM_WAYLAND_KHR)
 else()
-    target_compile_definitions(ZEROengineVulkan PRIVATE VK_USE_PLATFORM_XLIB_KHR)
-    target_link_libraries(ZEROengineVulkan PRIVATE ${X11_LIBRARIES})
+    target_compile_definitions(ZEROengineVulkan PRIVATE VK_USE_PLATFORM_XCB_KHR)
+    target_link_libraries(ZEROengineVulkan PUBLIC xcb ${X11_LIBRARIES})
 endif()

@@ -23,7 +23,6 @@ PRIVATE
 target_link_libraries(ZEROengineTests
 PRIVATE
     ZEROengine::ZEROengineCore
-    ZEROengine::ZEROengineSDL
     ZEROengine::ZEROengineVulkan
 )
 

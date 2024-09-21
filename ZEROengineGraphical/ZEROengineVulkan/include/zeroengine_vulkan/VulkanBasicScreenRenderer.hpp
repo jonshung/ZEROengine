@@ -6,11 +6,11 @@
 #include <vector>
 #include <memory>
 
+#include "zeroengine_vulkan/VulkanDefines.hpp"
 #include "zeroengine_vulkan/VulkanContext.hpp"
-#include "zeroengine_vulkan/VulkanRenderWindow.hpp"
+#include "zeroengine_vulkan/VulkanWindow.hpp"
 #include "zeroengine_vulkan/VulkanRenderer.hpp"
-#include "zeroengine_vulkan/VulkanPipelineBuffer.hpp"
-#include "zeroengine_vulkan/Vulkan_define.hpp"
+#include "zeroengine_vulkan/VulkanGraphicsPipelineBuffer.hpp"
 #include "zeroengine_vulkan/VulkanCommand.hpp"
 #include "zeroengine_core/ZEROengineDefines.hpp"
 
@@ -22,14 +22,16 @@ namespace ZEROengine {
     class VulkanBasicScreenRenderer : public VulkanRenderer {
     // Command buffers
     private:
-        std::vector<VulkanSecondaryCommandBuffer> frame_cmd_buffers;
         const uint32_t max_queued_frame = 2;
 
-        void allocateSecondaryCommandBuffer(const uint32_t &count);
-
-    // RenderTargets
+        void allocateCommandBuffer(const uint32_t &count);
+    
+    // render_window
     private:
-        VulkanRenderWindow render_window;
+        VulkanWindow *render_window;
+
+    public:
+        void bindRenderWindow(VulkanWindow *window);
 
     // public swapchain related API
     public:
@@ -80,28 +82,18 @@ namespace ZEROengine {
     public:
         // allocate additional concurrency lock for synchronization
         void createSyncObjects(const uint32_t &count);
-        VkResult tryAcquireSwapchainImage();
+        void tryAcquireSwapchainImage();
 
-        VkFence getPresentationLock(const uint32_t &target_index) {
-            return this->vk_presentation_mutex[target_index];
-        }
-        VkSemaphore getImageLock(const uint32_t &target_index) {
-            return this->vk_image_mutex[target_index];
-        }
-        VkSemaphore getRenderingLock(const uint32_t &target_index) {
-            return this->vk_rendering_mutex[target_index];
-        }
+        VkFence getPresentationLock(const uint32_t &target_index);
+        VkSemaphore getImageLock(const uint32_t &target_index);
+        VkSemaphore getRenderingLock(const uint32_t &target_index);
 
         void cleanup_syncObjects();
 
     // Initialization and cleanup procedures
     public:
         VulkanBasicScreenRenderer();
-        virtual ZEROResult initVulkanRenderer(VulkanContext *vulkan_context) override;
-        ZEROResult getRenderWindow(VulkanRenderWindow** pRenderWindow) {
-            *pRenderWindow = &this->render_window;
-            return { ZERO_SUCCESS, "" };
-        }
+        virtual void initVulkanRenderer(VulkanContext *vulkan_context) override;
         
         virtual void cleanup() override;
 
@@ -113,7 +105,7 @@ namespace ZEROengine {
         // world objects material and geometry informations in the future
         virtual void draw(VulkanGraphicsPipelineBuffer *const g_pipeline_buffer) override;
         virtual void end() override;
-        virtual ZEROResult record(VulkanGraphicsPipelineBuffer *const pipeline_buffer, std::vector<VulkanGraphicsRecordingInfo> &ret) override;
+        virtual ZEROResult record(VulkanGraphicsPipelineBuffer *const pipeline_buffer, VulkanCommandRecordingInfo &ret) override;
     }; // class VulkanBasicScreenRenderer
 } // namespace ZEROengine
 

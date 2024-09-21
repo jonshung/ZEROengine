@@ -1,5 +1,4 @@
 #include "zeroengine_core/ZEROengine.hpp"
-#include "zeroengine_sdl/SDL_VulkanWindowContext.hpp"
 #include "zeroengine_vulkan/VulkanGraphicalModule.hpp"
 
 #include <iostream>
@@ -34,8 +33,6 @@ int main() {
 
     // initializing graphical module
     VulkanGraphicalModule *vk_graphical_module = new VulkanGraphicalModule;
-    vk_graphical_module->bindWindowContext(new SDL_VulkanWindowContext); // Vulkan Graphical Module is handling the pointer using a unique_ptr, 
-                                                                        // so deallocation is depending on it.
     app.bindGraphicalModule(vk_graphical_module); // ZEROengine is handling the pointer using a unique_ptr, 
                                                   // so deallocation is depending on the engine
     app.init();
@@ -43,28 +40,15 @@ int main() {
     auto frag_data = readFile(std::string(BINARY_PATH) + "/frag.spv");
     auto vert_data = readFile(std::string(BINARY_PATH) + "/vert.spv");
 
-    VulkanGraphicsPipelineBuffer *pipeline_buffer{};
-    vk_graphical_module->getGraphicsPipelineBuffer(&pipeline_buffer);
-    VulkanGraphicsPipelineTemplate *pipeline_template{};
-    vk_graphical_module->getForwardPassPipelineTemplate(&pipeline_template);
-
-    VulkanContext *vulkan_context{};
-    VulkanBasicScreenRenderer *screen_renderer{};
-    VulkanRenderWindow *render_window{};
-    VkDevice device{};
-    VkRenderPass renderpass{};
-    vk_graphical_module->getVulkanContext(&vulkan_context);
-    vk_graphical_module->getScreenRenderer(&screen_renderer);
-    screen_renderer->getRenderWindow(&render_window);
-    render_window->getRenderPass(renderpass);
-    vulkan_context->getDevice(device);
+    VulkanGraphicsPipelineBuffer *pipeline_buffer = vk_graphical_module->getGraphicsPipelineBuffer();
+    VulkanGraphicsPipelineTemplate *pipeline_template = vk_graphical_module->getForwardPassPipelineTemplate();
 
     std::vector<ShaderData> shader_data = { {vert_data, frag_data} };
     std::vector<std::size_t> pipeline_hash = 
     pipeline_buffer->requestGraphicsPipelines(
-        device, 
+        vk_graphical_module->getVulkanContext()->getDevice(), 
         *pipeline_template,
-        renderpass,
+        vk_graphical_module->getRenderWindow()->getRenderPass(),
         shader_data);
     
     // freeing allocated buffers  

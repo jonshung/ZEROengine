@@ -14,12 +14,11 @@ namespace ZEROengine {
     }
 
     void ZEROengine::mainLoop() {
-        WindowContext *window_ctx;
-        this->getGraphicalModule()->getWindowContext(&window_ctx);
         while(!this->quitting_signal) {
-            window_ctx->poll();
+            if(this->getGraphicalModule()->isOff()) {
+                break;
+            }
             this->getGraphicalModule()->drawFrame();
-            this->quitting_signal = window_ctx->isClosing();
         }
     }
 

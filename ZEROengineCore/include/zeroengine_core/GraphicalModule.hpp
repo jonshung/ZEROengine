@@ -1,7 +1,6 @@
 #ifndef ZEROENGINE_GRAPHICAL_MODULE_H
 #define ZEROENGINE_GRAPHICAL_MODULE_H
 
-#include "zeroengine_core/WindowContext.hpp"
 #include "zeroengine_core/ZEROengineDefines.hpp"
 
 #include <memory>
@@ -10,24 +9,13 @@
 namespace ZEROengine {
     class GraphicalModule {
     protected:
-        std::unique_ptr<WindowContext> window_context;
-
+        bool is_off = false;
     public:
-        GraphicalModule() : window_context() {}
-        void bindWindowContext(WindowContext* window_ctx) {
-            if(!window_ctx) {
-                throw std::runtime_error("GraphicalModule::bindWindowContext() failed, error: null pointer");
-            }
-            this->window_context = std::unique_ptr<WindowContext>(window_ctx);
-        }
-        ZEROResult getWindowContext(WindowContext** ret) {
-            *ret = this->window_context.get();
-            return { ZERO_SUCCESS, "" };
-        }
+        GraphicalModule() {}
 
         virtual void initGraphicalModule() = 0;
         virtual void drawFrame() = 0;
-        virtual void handleResize() = 0;
+        virtual bool isOff() const { return this->is_off; }
         
         virtual void cleanup() = 0;
     }; // class GraphicalModule

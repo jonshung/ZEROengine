@@ -15,21 +15,18 @@ namespace ZEROengine {
     vk_device{},
     vk_graphics_queue{},
     vk_presentation_queue{}
-    {
-        VKInit_initInstance();
-    }
+    {}
 
-    ZEROResult VulkanContext::initVulkan(const VkSurfaceKHR &surface) {
+    void VulkanContext::initVulkan() {
         if(dbg_enable_validation_layers && !checkValidationLayersSupport()) {
-            return { ZERO_VULKAN_VALIDATION_NOT_EXISTS, "Validation layer is not supported but required." };
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "Validation layer is not supported but required.");
         }
         // preserve order
-        ZERO_CHECK_RESULT_RETURN(VKInit_initPhysicalDevice(surface));
-        ZERO_CHECK_RESULT_RETURN(VKInit_initLogicalDevice(surface));
-        return { ZERO_SUCCESS, "" };
+        VKInit_initInstance();
+        VKInit_initPhysicalDevice();
     }
 
-    ZEROResult VulkanContext::VKInit_initInstance() {
+    void VulkanContext::VKInit_initInstance() {
         VkApplicationInfo app_info{};
         app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
         app_info.pApplicationName = "ZEROengine";
@@ -50,7 +47,7 @@ namespace ZEROengine {
         };
         constexpr uint32_t required_extensions_count = std::extent<decltype(required_extensions)>::value;
         if(!validateExtensionsSupport(required_extensions_count, required_extensions, &val_ret)) {
-            ZERO_CHECK_RESULT_RETURN( ZEROResult({ ZERO_VULKAN_VALIDATION_INSUFFICIENT, val_ret }) );
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "Vulkan instance does not suport extension: " + val_ret);
         }
 
         create_info.enabledExtensionCount = required_extensions_count;
@@ -63,57 +60,47 @@ namespace ZEROengine {
         } else {
             create_info.enabledLayerCount = 0;
         }
-        VkResult rslt{};
-        if((rslt = vkCreateInstance(&create_info, nullptr, &this->vk_instance)) != VK_SUCCESS) {
-            ZERO_CHECK_RESULT_RETURN( ZEROResult({ ZERO_VULKAN_CREATE_INSTANCE_FAILED, string_VkResult(rslt) }) );
-        }
-        return { ZERO_SUCCESS, "" };
+        ZERO_VK_CHECK_EXCEPT(vkCreateInstance(&create_info, nullptr, &this->vk_instance));
     }
 
-    ZEROResult VulkanContext::VKInit_initPhysicalDevice(const VkSurfaceKHR &surface) {
+    void VulkanContext::VKInit_initPhysicalDevice() {
         if(this->vk_instance == VK_NULL_HANDLE) {
-            return { ZERO_VULKAN_NULL_HANDLE, "Handle to Vulkan instance is null, maybe it was not initialized?" };
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Vulkan instance handle is null.");
         }
         uint32_t device_count = 0;
         vkEnumeratePhysicalDevices(this->vk_instance, &device_count, nullptr);
         if(device_count == 0) {
-            return { ZERO_VULKAN_NO_PHYSICAL_DEVICE, "No physical device found." };
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "No physical device found.");
         }
         std::vector<VkPhysicalDevice> phys_devices(device_count);
         vkEnumeratePhysicalDevices(this->vk_instance, &device_count, phys_devices.data());
-
         // choose the best device
-        ZEROResult rslt = selectPhysicalDevice(surface, phys_devices);
-        ZERO_CHECK_RESULT_RETURN(rslt);
-        return { ZERO_SUCCESS, "" };;
+        this->selectPhysicalDevice(phys_devices);
     }
 
-    ZEROResult VulkanContext::VKInit_initLogicalDevice(const VkSurfaceKHR &surface) {
+    void VulkanContext::VKInit_initLogicalDevice(const VkSurfaceKHR &surface) {
         if(this->vk_instance == VK_NULL_HANDLE) {
-            return { ZERO_VULKAN_NULL_HANDLE, "Handle to Vulkan instance is null, maybe it was not initialized?" };
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Vulkan instance handle is null.");
         }
         if(this->vk_physical_device == VK_NULL_HANDLE) {
-            return { ZERO_VULKAN_NULL_HANDLE, "Handle to Vulkan physical device is null, maybe it was not initialized?" };
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Vulkan physical device handle is null.");
         }
-        QueueFamilyIndices queue_families = queryQueueFamily(this->vk_physical_device, {VK_QUEUE_GRAPHICS_BIT});
-        std::unordered_set<uint32_t> queue_indices;
-        for(auto &[family, index] : queue_families.queue_indices) {
-            if(!index.has_value()) {
-                return { ZERO_VULKAN_QUEUE_NOT_EXISTS, "A queue is not found for family: " + std::to_string(family) };
-            }
-            queue_indices.insert(index.value());
+        QueueFamilyIndices graphics_queue = queryQueueFamily(this->vk_physical_device, {VK_QUEUE_GRAPHICS_BIT});
+        if(!graphics_queue.exists()) {
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "No queue is found that can support graphics.");
         }
-        this->vk_graphics_queue.queueFamilyIndex = queue_families.queue_indices[VK_QUEUE_GRAPHICS_BIT].value(); // should exists since we already check suitability.
+        this->vk_graphics_queue.queueFamilyIndex = graphics_queue.queue_indices[VK_QUEUE_GRAPHICS_BIT].value(); // should exists since we already check suitability.
+        
         std::optional<uint32_t> presentation_queue = queryPresentationQueueFamily_Surface(surface, this->vk_physical_device); // again, should exists
         if(!presentation_queue.has_value()) {
-            return { ZERO_VULKAN_QUEUE_NOT_EXISTS, "Presentation queue is not exists, this should not be happening!" };
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "Presentation queue is not exists, this should not be happening!");
         }
         this->vk_presentation_queue.queueFamilyIndex = presentation_queue.value();
-        queue_indices.insert(static_cast<uint32_t>(presentation_queue.value()));
-
+        
+        std::unordered_set<uint32_t> queue_indices({ this->vk_graphics_queue.queueFamilyIndex, static_cast<uint32_t>(presentation_queue.value()) });
         std::vector<VkDeviceQueueCreateInfo> queue_create_infos{};
         float queuePriority = 1.0f;
-        for (uint32_t queue_family : queue_indices) {
+        for (const uint32_t &queue_family : queue_indices) {
             VkDeviceQueueCreateInfo queue_create_info{};
             queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
             queue_create_info.queueFamilyIndex = queue_family;
@@ -138,13 +125,9 @@ namespace ZEROengine {
         } else {
             device_create_info.enabledLayerCount = 0;
         }
-        VkResult rslt;
-        if((rslt = vkCreateDevice(this->vk_physical_device, &device_create_info, nullptr, &this->vk_device)) != VK_SUCCESS) {
-            throw std::runtime_error("vkCreateDevice() failed, err: " + std::string(string_VkResult(rslt)));
-        }
+        ZERO_VK_CHECK_EXCEPT(vkCreateDevice(this->vk_physical_device, &device_create_info, nullptr, &this->vk_device));
         vkGetDeviceQueue(this->vk_device, this->vk_graphics_queue.queueFamilyIndex, 0, &this->vk_graphics_queue.queue);
         vkGetDeviceQueue(this->vk_device, this->vk_presentation_queue.queueFamilyIndex, 0, &this->vk_presentation_queue.queue);
-        return { ZERO_SUCCESS, "" };
     }
 
     bool VulkanContext::checkValidationLayersSupport(std::string *ret) {
@@ -188,19 +171,25 @@ namespace ZEROengine {
         return true;
     }
 
-    ZEROResult VulkanContext::selectPhysicalDevice(const VkSurfaceKHR &surface, const std::vector<VkPhysicalDevice> &phys_devices) {
+    void VulkanContext::selectPhysicalDevice(const std::vector<VkPhysicalDevice> &phys_devices) {
         std::multimap<uint32_t, const VkPhysicalDevice&, std::greater<uint32_t>> device_scores{};
 
         for(const VkPhysicalDevice &dev : phys_devices) {
-            device_scores.insert({evaluatePhysicalDeviceSuitability(surface, dev), dev});
+            device_scores.insert({evaluatePhysicalDeviceSuitability(dev), dev});
         }
         auto it = device_scores.begin();
-        if(it->first == 0) return { ZERO_VULKAN_NO_SUITABLE_PHYS_DEVICE, "No suitable physical device found." };
+        if(it->first == 0) {
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "No suitable physical device found.");
+        }
         this->vk_physical_device = it->second;
-        return { ZERO_SUCCESS, "" };
+
+        // debug
+        VkPhysicalDeviceProperties device_properties{};
+        vkGetPhysicalDeviceProperties(it->second, &device_properties);
+        printf("Chosen %s\n", device_properties.deviceName);
     }
 
-    uint32_t VulkanContext::evaluatePhysicalDeviceSuitability(const VkSurfaceKHR &surface, const VkPhysicalDevice &phys_device) {
+    uint32_t VulkanContext::evaluatePhysicalDeviceSuitability(const VkPhysicalDevice &phys_device) {
         uint32_t score = 0;
         VkPhysicalDeviceProperties device_properties{};
         VkPhysicalDeviceFeatures device_features{};
@@ -214,15 +203,7 @@ namespace ZEROengine {
         // preliminary checks
         if(!device_features.geometryShader) return 0; // since we need geometry shader
         QueueFamilyIndices queue_indices = queryQueueFamily(phys_device, {VK_QUEUE_GRAPHICS_BIT});
-        std::optional<uint32_t> presentation_queue = queryPresentationQueueFamily_Surface(surface, phys_device);
-
-        if(!queue_indices.exists() || !presentation_queue.has_value()) return 0;
         if(!checkDeviceExtensionSupport(phys_device)) return 0;
-        
-        bool swapChainAdequate = false;
-        SwapChainSupportDetails swapChainSupport = querySwapChainSupport_Surface(surface, phys_device);
-        swapChainAdequate = !swapChainSupport.formats.empty() && !swapChainSupport.present_modes.empty();
-        if(!swapChainAdequate) return 0;
         
         return score;
     }
@@ -300,10 +281,10 @@ namespace ZEROengine {
 
     VulkanContext::SwapChainSupportDetails VulkanContext::querySwapChainSupport_Surface(const VkSurfaceKHR &surface, const VkPhysicalDevice &phys_device) {
         if(surface == VK_NULL_HANDLE) {
-            ZERO_EXCEPTION(ZERO_VULKAN_NULL_HANDLE, "Surface handle is null.");
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Surface handle is null.");
         }
         if(phys_device == VK_NULL_HANDLE) {
-            ZERO_EXCEPTION(ZERO_VULKAN_NULL_HANDLE, "Physical device handle is null.");
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Physical device handle is null.");
         }
         SwapChainSupportDetails details{};
         vkGetPhysicalDeviceSurfaceCapabilitiesKHR(phys_device, surface, &details.capabilities);
@@ -322,6 +303,27 @@ namespace ZEROengine {
             vkGetPhysicalDeviceSurfacePresentModesKHR(phys_device, surface, &present_mode_count, details.present_modes.data());
         }
         return details;
+    }
+
+
+    VkInstance VulkanContext::getInstance() {
+        if(this->vk_instance == VK_NULL_HANDLE) {
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Vulkan instance handle is null.");
+        }
+        return this->vk_instance;
+    }
+
+    VkQueueInfo* VulkanContext::getGraphicalQueue() {
+        if(this->vk_graphics_queue.queue == VK_NULL_HANDLE) {
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Vulkan graphics queue handle is null.");
+        }
+        return &this->vk_graphics_queue;
+    }
+    VkQueueInfo* VulkanContext::getPresentationQueue() {
+        if(this->vk_presentation_queue.queue == VK_NULL_HANDLE) {
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Vulkan presentation queue handle is null."); 
+        }
+        return &this->vk_presentation_queue;
     }
 
     void VulkanContext::waitForFence(VkFence fence) {

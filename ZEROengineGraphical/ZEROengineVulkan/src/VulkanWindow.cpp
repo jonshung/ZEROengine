@@ -1,11 +1,16 @@
-#include "zeroengine_vulkan/VulkanRenderWindow.hpp"
+#include "zeroengine_vulkan/VulkanWindow.hpp"
 
 #include <limits>
 
-#include <vulkan/vk_enum_string_helper.h>
-
 namespace ZEROengine {
-    VulkanRenderWindow::VulkanRenderWindow() :
+    VulkanWindow::VulkanWindow(
+        VulkanContext *const &vulkan_context,
+        const std::string &title,
+        const WindowTransform &transform,
+        const WindowSetting &setting,
+        const WindowStyle &style
+    ) :
+    WindowSupport(title, transform, setting, style),
     vulkan_context{nullptr},
     vk_surface{},
     vk_swapchain{},
@@ -14,45 +19,30 @@ namespace ZEROengine {
     vk_swapchain_framebuffers{},
     vk_swapchain_renderpass{},
     vk_swapchain_format{}
-    {}
-
-    ZEROResult VulkanRenderWindow::initVulkanRenderWindow(VulkanContext *vulkan_context, const VkSurfaceKHR &surface) {
+    {
         this->vulkan_context = vulkan_context;
-        this->vk_surface = surface;
-
-        initSwapChain();
-        initSwapChainRenderPass();
-        initSwapChainRenderTargets();
-        return { ZERO_SUCCESS, "" };
     }
 
-    ZEROResult VulkanRenderWindow::initSwapChain() {
-        VkPhysicalDevice phys_device{};
-        VkDevice device{};
-        VkResult rslt{};
-
-        this->vulkan_context->getPhysicalDevice(phys_device);
-        this->vulkan_context->getDevice(device);
+    void VulkanWindow::initSwapChain() {
+        VkPhysicalDevice phys_device = this->vulkan_context->getPhysicalDevice();;
+        VkDevice device = this->vulkan_context->getDevice();
 
         VulkanContext::SwapChainSupportDetails swap_chain_support = this->vulkan_context->querySwapChainSupport_Surface(this->vk_surface, phys_device);
 
         VkSurfaceFormatKHR surface_format = selectSwapchainSurfaceFormat(swap_chain_support.formats);
         VkPresentModeKHR present_mode = selectSwapchainPresentationMode(swap_chain_support.present_modes);
-        if(swap_chain_support.capabilities.currentExtent.width != std::numeric_limits<uint32_t>::max()) {
-            VkExtent2D current_extent = swap_chain_support.capabilities.currentExtent;
-            this->setDimensions(current_extent.width, current_extent.height);
-        } else {
-            uint32_t actual_width = std::clamp(
-                                        this->target_width, 
-                                        swap_chain_support.capabilities.minImageExtent.width, 
-                                        swap_chain_support.capabilities.maxImageExtent.width);
-            uint32_t actual_height = std::clamp(
-                                        this->target_height, 
-                                        swap_chain_support.capabilities.minImageExtent.height, 
-                                        swap_chain_support.capabilities.maxImageExtent.height);
-            this->setDimensions(actual_width, actual_height);
-        }
-        VkExtent2D extent = { this->target_width, this->target_height };
+
+        uint32_t actual_width = std::clamp(
+                                    this->getWidth(), 
+                                    swap_chain_support.capabilities.minImageExtent.width, 
+                                    swap_chain_support.capabilities.maxImageExtent.width);
+        uint32_t actual_height = std::clamp(
+                                    this->getHeight(), 
+                                    swap_chain_support.capabilities.minImageExtent.height, 
+                                    swap_chain_support.capabilities.maxImageExtent.height);
+        WindowSupport::resize(actual_width, actual_height);
+        
+        VkExtent2D extent = { this->getWidth(), this->getHeight() };
         this->vk_swapchain_format = surface_format.format;
         
         uint32_t image_count = swap_chain_support.capabilities.minImageCount + 1;
@@ -68,13 +58,13 @@ namespace ZEROengine {
         swap_chain_create_info.imageArrayLayers = 1;
         swap_chain_create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         
-        VkQueueInfo graphical_queue, presentation_queue;
-        this->vulkan_context->getGraphicalQueue(graphical_queue);
-        this->vulkan_context->getPresentationQueue(presentation_queue);
-        if (graphical_queue.queueFamilyIndex != presentation_queue.queueFamilyIndex) {
+        VkQueueInfo *graphical_queue = this->vulkan_context->getGraphicalQueue();
+        VkQueueInfo *presentation_queue = this->vulkan_context->getPresentationQueue();;
+        
+        if (graphical_queue->queueFamilyIndex != presentation_queue->queueFamilyIndex) {
             swap_chain_create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
             swap_chain_create_info.queueFamilyIndexCount = 2;
-            uint32_t queue_indices[2] = { graphical_queue.queueFamilyIndex, presentation_queue.queueFamilyIndex};
+            uint32_t queue_indices[2] = { graphical_queue->queueFamilyIndex, presentation_queue->queueFamilyIndex};
             swap_chain_create_info.pQueueFamilyIndices = queue_indices;
         } else {
             swap_chain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -86,33 +76,27 @@ namespace ZEROengine {
         swap_chain_create_info.presentMode = present_mode;
         swap_chain_create_info.clipped = VK_TRUE;
         swap_chain_create_info.oldSwapchain = VK_NULL_HANDLE;
-        if((rslt = vkCreateSwapchainKHR(device, &swap_chain_create_info, nullptr, &this->vk_swapchain)) != VK_SUCCESS) {
-            return { ZERO_FAILED, "" };
-            // return
-        }
-
-        return { ZERO_SUCCESS, "" };
+        ZERO_VK_CHECK_EXCEPT(vkCreateSwapchainKHR(device, &swap_chain_create_info, nullptr, &this->vk_swapchain));
     }
 
-    ZEROResult VulkanRenderWindow::getSwapchain(VkSwapchainKHR* &ret) {
-        ret = &this->vk_swapchain;
-        return { ZERO_SUCCESS, "" };
+    VkSwapchainKHR* VulkanWindow::getSwapchain() {
+        return &this->vk_swapchain;
     }
 
-    ZEROResult VulkanRenderWindow::getFramebuffer(const uint32_t &index, VkFramebuffer &ret) const {
-        ret = this->vk_swapchain_framebuffers[index];
-        return { ZERO_SUCCESS, "" };
+    VkFramebuffer VulkanWindow::getFramebuffer(const uint32_t &index) const {
+        return this->vk_swapchain_framebuffers[index];
     }
 
-    ZEROResult VulkanRenderWindow::getRenderPass(VkRenderPass &ret) const {
-        ret = this->vk_swapchain_renderpass;
-        return { ZERO_SUCCESS, "" };
+    VkRenderPass VulkanWindow::getRenderPass() const {
+        return this->vk_swapchain_renderpass;
     }
 
-    ZEROResult VulkanRenderWindow::initSwapChainRenderPass() {
-        VkDevice device{};
-        this->vulkan_context->getDevice(device);
+    VkSurfaceKHR VulkanWindow::getSurface() const {
+        return this->vk_surface;
+    }
 
+    void VulkanWindow::initSwapChainRenderPass() {
+        VkDevice device = this->vulkan_context->getDevice();
         std::array<VkAttachmentDescription, 2> attachments = {};
 
         attachments[0].format = this->vk_swapchain_format;
@@ -176,26 +160,18 @@ namespace ZEROengine {
         render_pass_info.pSubpasses = &subpass;
         render_pass_info.dependencyCount = static_cast<uint32_t>(this->enable_depth_stencil_subpass ? 2 : 1);
         render_pass_info.pDependencies = subpass_dep.data();
-        VkResult rslt = vkCreateRenderPass(device, &render_pass_info, nullptr, &this->vk_swapchain_renderpass);
-        if (rslt != VK_SUCCESS) {
-            return { ZERO_FAILED, "" };
-        }
-        return { ZERO_SUCCESS, "" };
+        ZERO_VK_CHECK_EXCEPT(vkCreateRenderPass(device, &render_pass_info, nullptr, &this->vk_swapchain_renderpass));
     }
 
-    ZEROResult VulkanRenderWindow::initSwapChainRenderTargets() {
-        VkDevice device{};
-        this->vulkan_context->getDevice(device);
-        VkResult rslt{};
+    void VulkanWindow::initSwapChainRenderTargets() {
+        VkDevice device = this->vulkan_context->getDevice();
 
         uint32_t image_count = 0;
         vkGetSwapchainImagesKHR(device, this->vk_swapchain, &image_count, nullptr);
         this->vk_swapchain_images.resize(image_count);
         this->vk_swapchain_image_views.resize(image_count);
         this->vk_swapchain_framebuffers.resize(image_count);
-        if((rslt = vkGetSwapchainImagesKHR(device, this->vk_swapchain, &image_count, this->vk_swapchain_images.data())) != VK_SUCCESS) {
-            // return
-        }
+        ZERO_VK_CHECK_EXCEPT(vkGetSwapchainImagesKHR(device, this->vk_swapchain, &image_count, this->vk_swapchain_images.data()));
 
         for(std::size_t i = 0; i < image_count; ++i) {
             VkImageViewCreateInfo img_view_create_info{};
@@ -212,32 +188,26 @@ namespace ZEROengine {
             img_view_create_info.subresourceRange.levelCount = 1;
             img_view_create_info.subresourceRange.baseMipLevel = 0;
             img_view_create_info.subresourceRange.baseArrayLayer = 0;
-            if((rslt = vkCreateImageView(device, &img_view_create_info, nullptr, &this->vk_swapchain_image_views[i])) != VK_SUCCESS) {
-                return { ZERO_FAILED, "" };
-            }
+            ZERO_VK_CHECK_EXCEPT(vkCreateImageView(device, &img_view_create_info, nullptr, &this->vk_swapchain_image_views[i]));
 
             VkImageView* img_view_ref = &this->vk_swapchain_image_views[i];
             VkFramebufferCreateInfo framebuffers_create_info{};
             framebuffers_create_info.sType = VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO;
-            framebuffers_create_info.width = this->target_width;
-            framebuffers_create_info.height = this->target_height;
+            framebuffers_create_info.width = this->getWidth();
+            framebuffers_create_info.height = this->getHeight();
             framebuffers_create_info.layers = 1;
             framebuffers_create_info.attachmentCount = 1;
             framebuffers_create_info.pAttachments = img_view_ref;
             framebuffers_create_info.renderPass = this->vk_swapchain_renderpass;
-            if((rslt = vkCreateFramebuffer(
+            ZERO_VK_CHECK_EXCEPT(vkCreateFramebuffer(
                 device, 
                 &framebuffers_create_info, 
                 nullptr, 
-                &this->vk_swapchain_framebuffers[i]))
-            != VK_SUCCESS) {
-                return { ZERO_FAILED, "" };
-            }
+                &this->vk_swapchain_framebuffers[i]));
         }
-        return { ZERO_SUCCESS, "" };
     }
 
-    VkSurfaceFormatKHR VulkanRenderWindow::selectSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &formats) {
+    VkSurfaceFormatKHR VulkanWindow::selectSwapchainSurfaceFormat(const std::vector<VkSurfaceFormatKHR> &formats) {
         for (const auto& format : formats) {
             if (format.format == VK_FORMAT_B8G8R8A8_SRGB && format.colorSpace == VK_COLOR_SPACE_SRGB_NONLINEAR_KHR) {
                 return format;
@@ -247,26 +217,16 @@ namespace ZEROengine {
         return formats[0];
     }
 
-    VkPresentModeKHR VulkanRenderWindow::selectSwapchainPresentationMode(const std::vector<VkPresentModeKHR> &modes) {
+    VkPresentModeKHR VulkanWindow::selectSwapchainPresentationMode(const std::vector<VkPresentModeKHR> &modes) {
         for(const auto& mode : modes) {
             if(mode == VK_PRESENT_MODE_MAILBOX_KHR) return mode;
         }
         return VK_PRESENT_MODE_FIFO_KHR;
     }
 
-    void VulkanRenderWindow::handleResize(const uint32_t &new_frame_width, const uint32_t &new_frame_height) {
-        VkDevice device{};
-        this->vulkan_context->getDevice(device);
-
-        this->setDimensions(new_frame_width, new_frame_height);
-        vkDeviceWaitIdle(device);
-        this->reload_swapChain();
-    }
-
-    void VulkanRenderWindow::cleanup_swapChain() {
-        VkDevice device{};
-        this->vulkan_context->getDevice(device);
-
+    void VulkanWindow::cleanup_swapChain() {
+        VkDevice device = this->vulkan_context->getDevice();
+        
         for(auto &framebuffer : this->vk_swapchain_framebuffers) {
             vkDestroyFramebuffer(device, framebuffer, nullptr);
         }
@@ -276,7 +236,7 @@ namespace ZEROengine {
         vkDestroySwapchainKHR(device, this->vk_swapchain, nullptr);
     }
 
-    void VulkanRenderWindow::reload_swapChain() {
+    void VulkanWindow::reload_swapChain() {
         // should only be called in context when none of these is in used.
         cleanup_swapChain();
 
@@ -284,11 +244,10 @@ namespace ZEROengine {
         initSwapChainRenderTargets();
     }
 
-    void VulkanRenderWindow::cleanup() {
-        VkDevice device{};
-        VkInstance instance{};
-        this->vulkan_context->getDevice(device);
-        this->vulkan_context->getInstance(instance);
+    void VulkanWindow::cleanup() {
+        VkDevice device = this->vulkan_context->getDevice();
+        VkInstance instance = this->vulkan_context->getInstance();
+    
         vkDestroyRenderPass(device, this->vk_swapchain_renderpass, nullptr);
         cleanup_swapChain();
         vkDestroySurfaceKHR(instance, this->vk_surface, nullptr);

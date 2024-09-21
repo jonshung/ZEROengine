@@ -1,10 +1,6 @@
-#include "zeroengine_vulkan/VulkanPipelineBuffer.hpp"
+#include "zeroengine_vulkan/VulkanGraphicsPipelineTemplate.hpp"
 
-#include <numeric>
-#include <utility>
-
-#include <vulkan/vk_enum_string_helper.h>
-#include "zeroengine_core/ZEROengineUtilities.hpp"
+#include "zeroengine_vulkan/VulkanDefines.hpp"
 
 namespace ZEROengine {
     VulkanGraphicsPipelineTemplate::VulkanGraphicsPipelineTemplate() :
@@ -37,28 +33,22 @@ namespace ZEROengine {
         multisample_state.alphaToOneEnable = VK_FALSE; // Optional
     }
 
-    VkShaderModule VulkanGraphicsPipelineTemplate::createShaderModule(VkDevice &device, const char* data, const std::size_t &data_size) {
+    VkShaderModule VulkanGraphicsPipelineTemplate::createShaderModule(const VkDevice &device, const char* data, const std::size_t &data_size) const {
         VkShaderModuleCreateInfo shader_create_info{};
         shader_create_info.sType = VK_STRUCTURE_TYPE_SHADER_MODULE_CREATE_INFO;
         shader_create_info.codeSize = data_size;
         shader_create_info.pCode = reinterpret_cast<const uint32_t*>(data);
         VkShaderModule shader_module;
-        VkResult rslt = vkCreateShaderModule(device, &shader_create_info, nullptr, &shader_module);
-        if(rslt != VK_SUCCESS) {
-            throw std::runtime_error("vkCreateShaderModule() failed, err: " + std::string(string_VkResult(rslt)));
-        }
+        ZERO_VK_CHECK_EXCEPT(vkCreateShaderModule(device, &shader_create_info, nullptr, &shader_module));
         return shader_module;
     }
 
-    void VulkanGraphicsPipelineTemplate::createGraphicsPipelinesLayout(VkDevice &device) {
-        VkResult rslt{};
+    void VulkanGraphicsPipelineTemplate::createGraphicsPipelinesLayout(const VkDevice &device) {
         VkDescriptorSetLayoutCreateInfo descriptor_set_create_info{};
         descriptor_set_create_info.sType = VK_STRUCTURE_TYPE_DESCRIPTOR_SET_LAYOUT_CREATE_INFO;
         descriptor_set_create_info.bindingCount = this->descriptor_layout_bindings.size();
         descriptor_set_create_info.pBindings = this->descriptor_layout_bindings.data();
-        if((rslt = vkCreateDescriptorSetLayout(device, &descriptor_set_create_info, nullptr, &this->descriptor_layout)) != VK_SUCCESS) {
-            throw std::runtime_error("vkCreatePipelineLayout() failed, err:" + std::string(string_VkResult(rslt)));
-        }
+        ZERO_VK_CHECK_EXCEPT(vkCreateDescriptorSetLayout(device, &descriptor_set_create_info, nullptr, &this->descriptor_layout));
         
         VkPipelineLayoutCreateInfo pipeline_layout_create_info{};
         pipeline_layout_create_info.sType = VK_STRUCTURE_TYPE_PIPELINE_LAYOUT_CREATE_INFO;
@@ -66,16 +56,14 @@ namespace ZEROengine {
         pipeline_layout_create_info.setLayoutCount = 1;
         pipeline_layout_create_info.pushConstantRangeCount = 0;
         pipeline_layout_create_info.pPushConstantRanges = nullptr;
-        if((rslt = vkCreatePipelineLayout(device, &pipeline_layout_create_info, nullptr, &this->pipeline_layout)) != VK_SUCCESS) {
-            throw std::runtime_error("vkCreatePipelineLayout() failed, err:" + std::string(string_VkResult(rslt)));
-        }
+        ZERO_VK_CHECK_EXCEPT(vkCreatePipelineLayout(device, &pipeline_layout_create_info, nullptr, &this->pipeline_layout));
     }
 
     std::vector<VkPipeline>
     VulkanGraphicsPipelineTemplate::produce(
-        VkDevice &device, 
-        VkRenderPass &render_pass,
-        std::vector<ShaderData> &shaders) 
+        const VkDevice &device, 
+        const VkRenderPass &render_pass,
+        const std::vector<ShaderData> &shaders) const
     {
         // BEGIN fixed-function create infos
         VkPipelineVertexInputStateCreateInfo vertex_input_info{};
@@ -103,8 +91,8 @@ namespace ZEROengine {
         dynamic_state.dynamicStateCount = static_cast<uint32_t>(dynamic_states.size());
         dynamic_state.pDynamicStates = dynamic_states.data();
 
-        VkPipelineRasterizationStateCreateInfo& rasterizer = this->rasterization_state;
-        VkPipelineMultisampleStateCreateInfo& multisampling = this->multisample_state;
+        VkPipelineRasterizationStateCreateInfo rasterizer = this->rasterization_state;
+        VkPipelineMultisampleStateCreateInfo multisampling = this->multisample_state;
 
         // TODO: support for color blending customization
         VkPipelineColorBlendAttachmentState color_blend_attachment{};
@@ -159,7 +147,7 @@ namespace ZEROengine {
         std::vector<VkGraphicsPipelineCreateInfo> jobs(shaders.size());
         std::vector<std::pair<VkShaderModule, VkShaderModule>> shader_modules(shaders.size());
         std::size_t i = 0;
-        for(ShaderData &data : shaders) {
+        for(const ShaderData &data : shaders) {
             shader_modules[i].first = createShaderModule(device, data.vertex_data.first, data.vertex_data.second);
             shader_modules[i].second = createShaderModule(device, data.fragment_data.first, data.fragment_data.second);
 
@@ -182,10 +170,7 @@ namespace ZEROengine {
             ++i;
         }
         // END programmable-function stages
-        VkResult rslt = vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, jobs.size(), jobs.data(), nullptr, ret.data());
-        if(rslt != VK_SUCCESS) {
-            throw std::runtime_error("vkCreateGraphicsPipelines() failed, err: " + std::string(string_VkResult(rslt)));
-        }
+        ZERO_VK_CHECK_EXCEPT(vkCreateGraphicsPipelines(device, VK_NULL_HANDLE, jobs.size(), jobs.data(), nullptr, ret.data()));
         for(auto &[vert_shader, frag_shader] : shader_modules) {
             vkDestroyShaderModule(device, frag_shader, nullptr);
             vkDestroyShaderModule(device, vert_shader, nullptr);
@@ -193,45 +178,4 @@ namespace ZEROengine {
         return ret;
     }
 
-    // ---------------------------------------------------------------------------------------------
-
-    VulkanGraphicsPipelineBuffer::VulkanGraphicsPipelineBuffer() :
-    pipeline_buffer{}
-    {}
-
-    std::vector<std::size_t> VulkanGraphicsPipelineBuffer::requestGraphicsPipelines(
-        VkDevice &device, 
-        VulkanGraphicsPipelineTemplate &pipeline_template, 
-        VkRenderPass &render_pass, 
-        std::vector<ShaderData> &data
-    ) {
-        // pipeline layout cache
-        std::size_t common_hash = hash_combine<VkRenderPass>((std::size_t) 0, render_pass);
-        common_hash = hash_combine<VkPipelineRasterizationStateCreateInfo>(common_hash, pipeline_template.rasterization_state);
-        common_hash = hash_combine<VkPipelineMultisampleStateCreateInfo>(common_hash, pipeline_template.multisample_state);
-        for(std::size_t i = 0; i < pipeline_template.vertex_binding.size(); i++) {
-            common_hash = hash_combine(common_hash, pipeline_template.vertex_binding[i]);
-        }
-
-        for(std::size_t i = 0; i < pipeline_template.vertex_attribute.size(); i++) {
-            common_hash = hash_combine(common_hash, pipeline_template.vertex_attribute[i]);
-        }
-        std::vector<ShaderData> submitting_job;
-        std::vector<std::size_t> ret_hash;
-        for(ShaderData &component : data) {
-            std::size_t hash = hash_combine(common_hash, component.vertex_data.first, component.vertex_data.second);
-            hash = hash_combine(hash, component.fragment_data.first, component.fragment_data.second);
-            if(this->pipeline_buffer.find(hash) == this->pipeline_buffer.end()) {
-                submitting_job.push_back(component);
-                ret_hash.push_back(hash);
-            }
-        }
-
-        std::vector<VkPipeline> produces = pipeline_template.produce(device, render_pass, submitting_job);
-        for(std::size_t i = 0; i < ret_hash.size(); ++i) {
-            this->pipeline_buffer[ret_hash[i]].vk_pipeline = produces[i];
-            this->pipeline_buffer[ret_hash[i]].vk_pipeline_layout = pipeline_template.pipeline_layout;
-        }
-        return ret_hash;
-    }
 } // namespace ZEROengine

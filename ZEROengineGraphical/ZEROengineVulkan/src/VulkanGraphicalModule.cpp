@@ -1,13 +1,17 @@
 #include "zeroengine_vulkan/VulkanGraphicalModule.hpp"
-#include "zeroengine_vulkan/Vulkan_define.hpp"
-#include "zeroengine_vulkan/VulkanWindowContext.hpp"
+#include "zeroengine_vulkan/VulkanDefines.hpp"
 
 #include <cstring>
 #include <chrono>
+#include <unordered_map>
 
 #include <vulkan/vk_enum_string_helper.h>
 #include <glm/glm.hpp>
 #include <glm/gtc/matrix_transform.hpp>
+
+#if defined(VK_USE_PLATFORM_XCB_KHR)
+#include "zeroengine_vulkan/windowing/X11/VulkanXCBWindow.hpp"
+#endif
 
 namespace ZEROengine {
     static std::vector<BaseVertex> rect = {
@@ -37,62 +41,44 @@ namespace ZEROengine {
     {}
 
     void VulkanGraphicalModule::initGraphicalModule() {
-        VkResult rslt;
-        uint32_t w, h;
-
+        this->is_off = false;
+        
         // initializing window and surface
-        WindowContext *window_ctx{};
-        this->getWindowContext(&window_ctx);
-        VulkanWindowContext* vk_window_ctx = dynamic_cast<VulkanWindowContext*>(window_ctx);
-        VulkanContext *vulkan_context{};
-        VulkanBasicScreenRenderer *screen_renderer{};
-        this->getVulkanContext(&vulkan_context);
-        this->getScreenRenderer(&screen_renderer);
-        if(!vk_window_ctx) {
-            throw std::runtime_error("VulkanGraphicalModule::initGraphicalModule() failed, error: window_context null or conversion to a VulkanWindowContext* failed");
-        }
-        vk_window_ctx->initWindow(640, 480);
-        vk_window_ctx->getFramebufferSize(w, h);
+        VulkanContext *vulkan_context = this->getVulkanContext();
+        vulkan_context->initVulkan();
 
-        VkInstance vk_instance{};
-        vulkan_context->getInstance(vk_instance);
-        VkSurfaceKHR surface{};
-        vk_window_ctx->getSurface(vk_instance, &surface);
+        // create default VulkanWindow
+        WindowSetting w_setting{};
+        WindowTransform w_transform{};
+        w_transform.width = 640u;
+        w_transform.height = 380u;
+        WindowStyle w_style{};
+    #if defined(VK_USE_PLATFORM_XCB_KHR)
+        this->render_window = new VulkanXCBWindow(&this->vulkan_context, "ZERO/engine", w_transform, w_setting, w_style);
+        this->render_window->init(0);
+    #endif
 
-        // initializing VulkanContext
-        vulkan_context->initVulkan(surface);
-
-        // initializing ScreenRenderer and resources
+        // initialize basic screen renderer
+        VulkanBasicScreenRenderer *screen_renderer = this->getScreenRenderer();
         screen_renderer->initVulkanRenderer(vulkan_context);
-        VulkanRenderWindow *render_window{};
-        screen_renderer->getRenderWindow(&render_window);
-        render_window->initVulkanRenderWindow(vulkan_context, surface);
-        render_window->setDimensions(w, h);
-
+        screen_renderer->bindRenderWindow(this->render_window);
+        
+        VkDevice device = vulkan_context->getDevice();
         // VMA
-        VkPhysicalDevice vk_physical{};
-        VkDevice vk_device{};
-        vulkan_context->getPhysicalDevice(vk_physical);
-        vulkan_context->getDevice(vk_device);
         VmaAllocatorCreateInfo vma_create{};
-        vma_create.instance = vk_instance;
-        vma_create.physicalDevice = vk_physical;
-        vma_create.device = vk_device;
+        vma_create.instance = vulkan_context->getInstance();
+        vma_create.physicalDevice = vulkan_context->getPhysicalDevice();
+        vma_create.device = device;
         vma_create.vulkanApiVersion = VK_API_VERSION_1_3;
         vma_create.flags = VMA_ALLOCATOR_CREATE_EXTERNALLY_SYNCHRONIZED_BIT;
-        if((rslt = vmaCreateAllocator(&vma_create, &this->vma_alloc)) != VK_SUCCESS) {
-            throw std::runtime_error("vmaCreateAllocator() failed, error: cannot create VmaAllocator");
-        }
+        ZERO_VK_CHECK_EXCEPT(vmaCreateAllocator(&vma_create, &this->vma_alloc));
         
         // Rendering contexts
-        VkQueueInfo graphical_queue{}, presentation_queue{};
-        this->vulkan_context.getGraphicalQueue(graphical_queue);
-        this->vulkan_context.getPresentationQueue(presentation_queue);
         VulkanRenderContext &render_context = this->vulkan_render_context;
         VulkanRenderContextCreateInfo params{};
-        params.device = vk_device;
-        params.graphical_queue_info = graphical_queue;
-        params.presentation_queue_info = presentation_queue;
+        params.device = device;
+        params.graphical_queue_info = *vulkan_context->getGraphicalQueue();
+        params.presentation_queue_info = *vulkan_context->getPresentationQueue();
         params.primary_buffer_count = screen_renderer->getMaxQueuedFrame();
         render_context.initVulkanRenderContext(params);
 
@@ -143,9 +129,7 @@ namespace ZEROengine {
         descriptor_pool_create_info.pPoolSizes = &descriptor_pool_size;
         descriptor_pool_create_info.poolSizeCount = 1;
         descriptor_pool_create_info.maxSets = static_cast<uint32_t>(screen_renderer->getMaxQueuedFrame());
-        if((rslt = vkCreateDescriptorPool(vk_device, &descriptor_pool_create_info, nullptr, &this->vk_descriptor_pool)) != VK_SUCCESS) {
-            throw std::runtime_error("vkCreateDescriptorPool() failed, error: " + std::string(string_VkResult(rslt)));
-        }
+        ZERO_VK_CHECK_EXCEPT(vkCreateDescriptorPool(device, &descriptor_pool_create_info, nullptr, &this->vk_descriptor_pool));
 
         // ForwardPass RenderPass
         VulkanBaseVertexInputBinding base_vertex_binding{};
@@ -153,7 +137,7 @@ namespace ZEROengine {
         this->forwardpass_pipeline_template.descriptor_layout_bindings.push_back(base_descriptor_layout.bindingDescription(0));
         this->forwardpass_pipeline_template.vertex_binding = { base_vertex_binding.bindingDescription(0) };
         this->forwardpass_pipeline_template.vertex_attribute = base_vertex_binding.attributesDescription(0);
-        this->forwardpass_pipeline_template.createGraphicsPipelinesLayout(vk_device);
+        this->forwardpass_pipeline_template.createGraphicsPipelinesLayout(device);
 
         // Descriptor set
         VkDescriptorSetAllocateInfo descriptor_set_allocate_info{};
@@ -163,9 +147,8 @@ namespace ZEROengine {
         std::vector<VkDescriptorSetLayout> desc_set_layouts(screen_renderer->getMaxQueuedFrame(), this->forwardpass_pipeline_template.descriptor_layout);
         descriptor_set_allocate_info.pSetLayouts = desc_set_layouts.data();
         this->vk_descriptor_sets.resize(screen_renderer->getMaxQueuedFrame());
-        if((rslt = vkAllocateDescriptorSets(vk_device, &descriptor_set_allocate_info, this->vk_descriptor_sets.data())) != VK_SUCCESS) {
-            throw std::runtime_error("vkCreateDescriptorPool() failed, error: " + std::string(string_VkResult(rslt)));
-        }
+        ZERO_VK_CHECK_EXCEPT(vkAllocateDescriptorSets(device, &descriptor_set_allocate_info, this->vk_descriptor_sets.data()));
+
         for(std::size_t i = 0; i < screen_renderer->getMaxQueuedFrame(); ++i) {
             VkDescriptorBufferInfo desc_buf_info{};
             desc_buf_info.buffer = this->uniform_buffers[i].vk_buffer;
@@ -179,7 +162,7 @@ namespace ZEROengine {
             desc_write.descriptorType = VK_DESCRIPTOR_TYPE_UNIFORM_BUFFER;
             desc_write.descriptorCount = 1;
             desc_write.pBufferInfo = &desc_buf_info;
-            vkUpdateDescriptorSets(vk_device, 1, &desc_write, 0, nullptr);
+            vkUpdateDescriptorSets(device, 1, &desc_write, 0, nullptr);
         }
 
         // Vertex and Index Staging buffer
@@ -187,23 +170,21 @@ namespace ZEROengine {
     }
 
     void VulkanGraphicalModule::drawFrame() {
-        WindowContext *window_ctx{};
-        this->getWindowContext(&window_ctx);
-        if(window_ctx->isMinimized()) { // drawing on 0-sized framebuffer is dangerous, thus we wait until window is opened again. Also to save computation cost.
+        VulkanWindow *render_window = this->getRenderWindow();
+        render_window->pollEvent();
+        if(render_window->isClosing()) {
+            this->is_off = true;
             return;
         }
-        VulkanBasicScreenRenderer *screen_renderer{};
-        this->getScreenRenderer(&screen_renderer);
+        if(render_window->isMinimized() || !render_window->isActive()) {
+            return; // no need to draw on inactive or minimized windows.
+        }
+        VulkanBasicScreenRenderer *screen_renderer = this->getScreenRenderer();
         const uint32_t &current_frame_index = screen_renderer->getCurrentFrameIndex();
-        VulkanRenderWindow *render_window;
-        screen_renderer->getRenderWindow(&render_window);
         VulkanRenderContext &render_context = this->vulkan_render_context;
 
         this->vulkan_context.waitForFence(screen_renderer->getPresentationLock(current_frame_index));
-        if(window_ctx->resized() || screen_renderer->tryAcquireSwapchainImage() == VK_ERROR_OUT_OF_DATE_KHR) {
-            handleResize();
-            return;
-        }
+        screen_renderer->tryAcquireSwapchainImage();
         this->vulkan_context.releaseFence(screen_renderer->getPresentationLock(current_frame_index)); // releasing the lock
 
         // BEGIN rendering pipeline
@@ -222,42 +203,31 @@ namespace ZEROengine {
                                     // accounting for if framebuffer of surface is bigger than 
                                     // swapchain and has to be clamped
         rect_uniform[0].projection[1][1] *= -1;
-        vmaCopyMemoryToAllocation(this->vma_alloc, &rect_uniform[0], this->uniform_buffers[current_frame_index].vma_mem_alloc, 0, sizeof(rect_uniform[0]));
+        ZERO_VK_CHECK_EXCEPT(vmaCopyMemoryToAllocation(
+            this->vma_alloc, 
+            &rect_uniform[0], 
+            this->uniform_buffers[current_frame_index].vma_mem_alloc, 
+            0, 
+            sizeof(rect_uniform[0])
+        ));
 
         screen_renderer->setUniformBufferDescriptorSets({ this->vk_descriptor_sets[current_frame_index]} );
         
         // 2. recording to the secondary command buffer
-        std::vector<VulkanGraphicsRecordingInfo> recordings;
-        screen_renderer->record(&this->vk_graphics_pipeline_buffer, recordings);
+        VulkanCommandRecordingInfo screen_draw_recording;
+        screen_renderer->record(&this->vk_graphics_pipeline_buffer, screen_draw_recording);
 
         // 3. now record to the render context and submit to hardware
-        render_context.reset(current_frame_index);
-        render_context.begin(current_frame_index);
-        for(auto &recording : recordings) {
-            render_context.recordRenderPassCommandBuffer(current_frame_index, recording);
-        }
-        render_context.end(current_frame_index);
-        render_context.submit(
-            current_frame_index, 
-            screen_renderer->getImageLock(current_frame_index), 
-            screen_renderer->getRenderingLock(current_frame_index),
-            screen_renderer->getPresentationLock(current_frame_index)
-        );
-
-        render_context.present(screen_renderer->getPresentImageInfo());
+        render_context.queueCommandRecording(screen_draw_recording);
+        render_context.queuePresent(screen_renderer->getPresentImageInfo());
+        render_context.submit();
         screen_renderer->queueNextFrame();
         // END rendering pipeline
     }
 
     void VulkanGraphicalModule::recordAndSubmitStagingCommandBuffer() {
-        VulkanContext *vulkan_context{};
-        VulkanBasicScreenRenderer *screen_renderer{};
-        VkDevice device{};
-        VkQueueInfo queue_info{};
-        this->getVulkanContext(&vulkan_context);
-        this->getScreenRenderer(&screen_renderer);
-        vulkan_context->getDevice(device);
-        vulkan_context->getGraphicalQueue(queue_info);
+        VkDevice device = this->getVulkanContext()->getDevice();
+        VkQueueInfo *queue_info = this->getVulkanContext()->getGraphicalQueue();
 
         // 1. Create Staging buffers for vertices and indices
         VulkanBuffer vertices_staging_buffer, indices_staging_buffer;
@@ -275,21 +245,18 @@ namespace ZEROengine {
         vmaCopyMemoryToAllocation(this->vma_alloc, reinterpret_cast<void*>(indices.data()), indices_staging_buffer.vma_mem_alloc, 0, indices_staging_buffer.request_size);
 
         // 2. Create a command pool
-        VkResult rslt{};
         VkCommandPoolCreateInfo cmd_pool_create_info{};
         VkCommandPool staging_cmd_pool{};
 
         cmd_pool_create_info.sType = VK_STRUCTURE_TYPE_COMMAND_POOL_CREATE_INFO;
         cmd_pool_create_info.flags = VK_COMMAND_POOL_CREATE_RESET_COMMAND_BUFFER_BIT;
-        cmd_pool_create_info.queueFamilyIndex = queue_info.queueFamilyIndex;
-        if((rslt = vkCreateCommandPool(device, &cmd_pool_create_info, nullptr, &staging_cmd_pool)) != VK_SUCCESS) {
-            throw std::runtime_error("vkCreateCommandPool() failed, err: " + std::string(string_VkResult(rslt)));
-        }
+        cmd_pool_create_info.queueFamilyIndex = queue_info->queueFamilyIndex;
+        ZERO_VK_CHECK_EXCEPT(vkCreateCommandPool(device, &cmd_pool_create_info, nullptr, &staging_cmd_pool));
 
         // 3. Create command buffer for recording
         VkCommandBufferAllocateInfo allocInfo{};
         allocInfo.sType = VK_STRUCTURE_TYPE_COMMAND_BUFFER_ALLOCATE_INFO;
-        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_SECONDARY;
+        allocInfo.level = VK_COMMAND_BUFFER_LEVEL_PRIMARY;
         allocInfo.commandPool = staging_cmd_pool;
         allocInfo.commandBufferCount = 1;
         VkCommandBuffer staging_cmd_buffer{};
@@ -314,48 +281,44 @@ namespace ZEROengine {
         vkEndCommandBuffer(staging_cmd_buffer);
 
         // 5. Submit and wait, then release all used resources
-        const uint32_t &current_frame_index = screen_renderer->getCurrentFrameIndex();
         VulkanRenderContext &render_context = this->vulkan_render_context;
-        render_context.reset(current_frame_index);
-        render_context.begin(current_frame_index);
-        render_context.recordTransferCommandBuffer(current_frame_index, { staging_cmd_buffer });
-        render_context.end(current_frame_index);
-        render_context.submit(
-            current_frame_index, 
-            VK_NULL_HANDLE, // no need to wait for anything exclusively
-            VK_NULL_HANDLE,
-            VK_NULL_HANDLE
-        );
-        render_context.waitOnQueue();
+        VulkanCommandRecordingInfo recording_info{};
+        recording_info.cmd = { staging_cmd_buffer };
+        render_context.queueCommandRecording(recording_info);
+        render_context.submit();
+        render_context.waitOnGraphicalQueue();
         vkDestroyCommandPool(device, staging_cmd_pool, nullptr);
         vertices_staging_buffer.cleanup(this->vma_alloc);
         indices_staging_buffer.cleanup(this->vma_alloc);
     }
 
-    void VulkanGraphicalModule::handleResize() {
-        uint32_t w = 0, h = 0;
-        VulkanRenderWindow *render_window{};
-        VulkanBasicScreenRenderer *screen_renderer{};
-        WindowContext *window_ctx{};
-        this->getWindowContext(&window_ctx);
-        this->getScreenRenderer(&screen_renderer);
-        window_ctx->getFramebufferSize(w, h);
-        screen_renderer->getRenderWindow(&render_window);
-        render_window->handleResize(w, h);
+    VulkanContext* VulkanGraphicalModule::getVulkanContext() {
+        return &this->vulkan_context;
+    }
+
+    VulkanRenderContext* VulkanGraphicalModule::getRenderContext() {
+        return &this->vulkan_render_context;
+    }
+
+    VulkanBasicScreenRenderer* VulkanGraphicalModule::getScreenRenderer() {
+        return &this->vulkan_screen_renderer;
+    }
+
+    VulkanGraphicsPipelineTemplate* VulkanGraphicalModule::getForwardPassPipelineTemplate() {
+        return &this->forwardpass_pipeline_template;
+    }
+
+    VulkanGraphicsPipelineBuffer* VulkanGraphicalModule::getGraphicsPipelineBuffer() {
+        return &this->vk_graphics_pipeline_buffer;
+    }
+        
+    VulkanWindow* VulkanGraphicalModule::getRenderWindow() {
+        return this->render_window;
     }
 
     void VulkanGraphicalModule::cleanup() {
-        VkDevice device{};
-        WindowContext *window_context{};
-        VulkanContext *vulkan_context{};
-        VulkanBasicScreenRenderer *screen_renderer{};
-        VulkanRenderContext *render_context{};
-        this->getWindowContext(&window_context);
-        this->getVulkanContext(&vulkan_context);
-        this->getScreenRenderer(&screen_renderer);
-        this->getRenderContext(&render_context);
-        this->vulkan_context.getDevice(device);
-        vkDeviceWaitIdle(device);
+        VkDevice device = this->getVulkanContext()->getDevice();
+        vkDeviceWaitIdle(this->getVulkanContext()->getDevice());
 
         this->vertices_buffer.cleanup(this->vma_alloc);
         this->index_buffer.cleanup(this->vma_alloc);
@@ -369,11 +332,11 @@ namespace ZEROengine {
         this->forwardpass_pipeline_template.cleanup(device);
         this->vk_graphics_pipeline_buffer.cleanup(device);
 
-        screen_renderer->cleanup();
-        render_context->cleanup();
-        this->window_context->cleanup();
+        this->getScreenRenderer()->cleanup();
+        this->getRenderContext()->cleanup();
 
         // always last
         this->vulkan_context.cleanup();
+        is_off = true;
     }
 } // namespace ZEROengine

@@ -6,8 +6,8 @@ set(CMAKE_VERBOSE_MAKEFILE ON)
 # Sourcing
 set(ZEROengineCore_Sources
     ${CMAKE_CURRENT_SOURCE_DIR}/src/ZEROengine.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/WindowSupport.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/MurmurHash3.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/RenderTarget.cpp
 )
 
 # module declaration
