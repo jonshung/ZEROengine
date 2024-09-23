@@ -176,7 +176,7 @@ namespace ZEROengine {
             this->is_off = true;
             return;
         }
-        if(render_window->isMinimized() || !render_window->isActive()) {
+        if(render_window->isMinimized() || !render_window->isActive() || render_window->isHidden()) {
             return; // no need to draw on inactive or minimized windows.
         }
         VulkanBasicScreenRenderer *screen_renderer = this->getScreenRenderer();
@@ -184,8 +184,7 @@ namespace ZEROengine {
         VulkanRenderContext &render_context = this->vulkan_render_context;
 
         this->vulkan_context.waitForFence(screen_renderer->getPresentationLock(current_frame_index));
-        screen_renderer->tryAcquireSwapchainImage();
-        this->vulkan_context.releaseFence(screen_renderer->getPresentationLock(current_frame_index)); // releasing the lock
+        this->vulkan_context.releaseFence(screen_renderer->getPresentationLock(current_frame_index));
 
         // BEGIN rendering pipeline
         // 1. updating uniform buffer

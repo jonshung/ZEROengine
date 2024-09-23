@@ -14,6 +14,7 @@ typedef enum ZEROResultEnum {
     ZERO_FAILED = 1,
     ZERO_NULL_POINTER = 2,
     ZERO_GRAPHICAL_ERROR = 1001,
+    ZERO_GRAPHICAL_MOVE_OR_RESIZE = 1002,
 } ZEROResultEnum;
 
 struct ZEROResult {

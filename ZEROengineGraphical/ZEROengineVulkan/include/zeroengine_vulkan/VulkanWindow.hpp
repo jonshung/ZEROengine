@@ -27,6 +27,8 @@ namespace ZEROengine {
         std::vector<VkFramebuffer> vk_swapchain_framebuffers;
         VkRenderPass vk_swapchain_renderpass;
 
+        uint32_t vk_acquired_swapchain;
+
         VkFormat vk_swapchain_format;
 
     private:
@@ -52,6 +54,8 @@ namespace ZEROengine {
         VkFramebuffer getFramebuffer(const uint32_t &index) const;
         VkRenderPass getRenderPass() const;
         VkSurfaceKHR getSurface() const;
+        bool tryAcquireSwapchainImage(const VkSemaphore &wait_semaphore, const uint32_t &call_depth = 0);
+        uint32_t* getAcquiredSwapchain();
 
         void reload_swapChain();
         void cleanup_swapChain();

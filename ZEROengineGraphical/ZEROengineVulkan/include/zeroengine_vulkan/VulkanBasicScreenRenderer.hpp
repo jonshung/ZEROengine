@@ -43,7 +43,6 @@ namespace ZEROengine {
         VkPresentInfoKHR getPresentImageInfo();
 
         uint32_t current_frame_index = 0;
-        uint32_t acquired_swapchain_index;
 
     // Frame data
     private:
@@ -82,7 +81,6 @@ namespace ZEROengine {
     public:
         // allocate additional concurrency lock for synchronization
         void createSyncObjects(const uint32_t &count);
-        void tryAcquireSwapchainImage();
 
         VkFence getPresentationLock(const uint32_t &target_index);
         VkSemaphore getImageLock(const uint32_t &target_index);

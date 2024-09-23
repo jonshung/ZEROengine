@@ -212,10 +212,9 @@ namespace ZEROengine {
             this->window_transform.y = geom->y;
         }
 
+        this->resize(geom->width, geom->height);
         this->vulkan_context->stall();
         reload_swapChain();
-
-        this->resize(geom->width, geom->height);
         free(geom);
     }
 

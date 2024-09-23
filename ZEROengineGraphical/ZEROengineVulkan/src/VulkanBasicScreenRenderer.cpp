@@ -8,7 +8,6 @@ namespace ZEROengine {
     VulkanBasicScreenRenderer::VulkanBasicScreenRenderer() :
     VulkanRenderer(),
     current_frame_index{0},
-    acquired_swapchain_index{},
     vertices_data{nullptr},
     vertices_buffer_handles{},
     index_data{nullptr},
@@ -60,7 +59,7 @@ namespace ZEROengine {
         present_info.pWaitSemaphores = &this->vk_rendering_mutex[this->current_frame_index];
         present_info.swapchainCount = 1;
         present_info.pSwapchains = swapchain;
-        present_info.pImageIndices = &this->acquired_swapchain_index;
+        present_info.pImageIndices = this->render_window->getAcquiredSwapchain();
         present_info.pResults = nullptr;
         return present_info;
     }
@@ -79,7 +78,7 @@ namespace ZEROengine {
         std::unordered_map<std::size_t, VulkanGraphicsPipelineObject> &pipelines = g_pipeline_buffer->getAllPipelines();
         if(pipelines.size() == 0) return;
 
-        VkFramebuffer current_swapchain_frame = this->render_window->getFramebuffer(this->acquired_swapchain_index);
+        VkFramebuffer current_swapchain_frame = this->render_window->getFramebuffer(*this->render_window->getAcquiredSwapchain());
         VkRenderPass swapchain_renderpass = this->render_window->getRenderPass();
         VkExtent2D render_area{};
         this->render_window->getDimensions(render_area.width, render_area.height);
@@ -169,27 +168,12 @@ namespace ZEROengine {
         vkResetCommandBuffer(this->frame_cmd_buffers[this->current_frame_index], 0);
     }
 
-    void VulkanBasicScreenRenderer::tryAcquireSwapchainImage() {
-        VkDevice device = this->vulkan_context->getDevice();
-        VkSwapchainKHR *swapchain = this->render_window->getSwapchain();
-        
-        VkResult rslt = vkAcquireNextImageKHR(
-            device, *swapchain, 
-            UINT64_MAX, 
-            this->vk_image_mutex[this->current_frame_index], 
-            VK_NULL_HANDLE, 
-            &this->acquired_swapchain_index
-        ); // handle resize
-        if(rslt == VK_ERROR_OUT_OF_DATE_KHR) {
-            this->render_window->handleMoveOrResize();
-        }
-    }
-
     ZEROResult VulkanBasicScreenRenderer::record(VulkanGraphicsPipelineBuffer *const pipeline_buffer, VulkanCommandRecordingInfo &ret) {
         if(!this->vertices_data || this->vertices_buffer_handles.size() == 0 ||
             !this->index_data || this->index_buffer_handle == VK_NULL_HANDLE) {
             throw std::runtime_error("VulkanBasicScreenRenderer::record() failed, error: vertices data or vertice buffer handle is not mapped");
         }
+        this->render_window->tryAcquireSwapchainImage(this->getImageLock(this->current_frame_index));
         this->reset();
         this->begin();
         VkExtent2D render_area{};

@@ -18,6 +18,7 @@ namespace ZEROengine {
     vk_swapchain_image_views{},
     vk_swapchain_framebuffers{},
     vk_swapchain_renderpass{},
+    vk_acquired_swapchain{},
     vk_swapchain_format{}
     {
         this->vulkan_context = vulkan_context;
@@ -222,6 +223,34 @@ namespace ZEROengine {
             if(mode == VK_PRESENT_MODE_MAILBOX_KHR) return mode;
         }
         return VK_PRESENT_MODE_FIFO_KHR;
+    }
+
+    bool VulkanWindow::tryAcquireSwapchainImage(const VkSemaphore &wait_semaphore, const uint32_t &call_depth) {
+        if(call_depth == 64u) {
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "Maximum swapchin reacquisition depth.");
+        }
+        VkDevice device = this->vulkan_context->getDevice();
+        VkSwapchainKHR *swapchain = this->getSwapchain();
+        
+        VkResult rslt = vkAcquireNextImageKHR(
+            device, *swapchain, 
+            UINT64_MAX, 
+            wait_semaphore, 
+            VK_NULL_HANDLE, 
+            &this->vk_acquired_swapchain
+        ); // handle resize
+        if(rslt == VK_ERROR_OUT_OF_DATE_KHR) {
+            this->handleMoveOrResize();
+            // reacquire
+            return this->tryAcquireSwapchainImage(wait_semaphore, call_depth+1);
+        } else if(rslt != VK_SUCCESS && rslt != VK_SUBOPTIMAL_KHR) {
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "Error while trying to acquire swapchain image.");
+        }
+        return call_depth == 0;
+    }
+
+    uint32_t* VulkanWindow::getAcquiredSwapchain() {
+        return &this->vk_acquired_swapchain;
     }
 
     void VulkanWindow::cleanup_swapChain() {
