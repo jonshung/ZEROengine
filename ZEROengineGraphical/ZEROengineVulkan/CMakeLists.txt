@@ -10,15 +10,11 @@ find_package(X11 REQUIRED)
 
 set(ZEROengineVulkan_Sources
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VmaUsage.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanBasicScreenRenderer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanContext.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanDevice.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanGraphicalContext.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanGraphicalModule.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanGraphicsPipelineBuffer.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanGraphicsPipelineTemplate.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanRenderContext.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanRenderer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanPipelineManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanWindow.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/windowing/X11/VulkanXCBWindow.cpp
 )
 
 # module declaration
@@ -37,15 +33,15 @@ set_source_files_properties(src/VmaUsage.cpp
     PROPERTIES COMPILE_FLAGS "-Wno-implicit-fallthrough -Wno-unused-variable -Wno-parentheses -Wno-unused-function -Wno-unused-parameter -Wno-missing-field-initializers")
 
 target_include_directories(ZEROengineVulkan
-PUBLIC
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}>/include
-    $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/src>
-    $<INSTALL_INTERFACE:include/ZEROengine/ZEROengineGraphical/ZEROengineVulkan>
+PRIVATE
+    ${CMAKE_CURRENT_SOURCE_DIR}/include
+    ${CMAKE_CURRENT_SOURCE_DIR}/src
 )
 
 target_link_libraries(ZEROengineVulkan
 PUBLIC
-    ZEROengine::ZEROengineCore
+    ZEROengine::ZEROengine
+PRIVATE
     Vulkan::Vulkan
     glm::glm
 )

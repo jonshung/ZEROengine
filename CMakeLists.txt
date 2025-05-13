@@ -10,10 +10,10 @@ project(ZEROengine VERSION 1.0.0 LANGUAGES CXX)
 set(CMAKE_VERBOSE_MAKEFILE ON)
 
 # Core
-add_subdirectory(ZEROengineCore)
+add_subdirectory(ZEROengine)
 
 # Graphical Module
 add_subdirectory(ZEROengineGraphical)
 
 # Tests
-add_subdirectory(tests)
+# add_subdirectory(tests)

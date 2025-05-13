@@ -1,16 +1,16 @@
 #ifndef ZEROENGINE_VULKAN_DEFINE_H
 #define ZEROENGINE_VULKAN_DEFINE_H
 
-#include <vulkan/vulkan.hpp>
 #include <vulkan/vk_enum_string_helper.h>
 #include <glm/glm.hpp>
 
-#include "zeroengine_core/ZEROengineDefines.hpp"
+#include "zeroengine_core/ZERODefines.hpp"
 
 #include <vector>
 #include <string>
 
 namespace ZEROengine {
+
     struct VkQueueInfo {
         VkQueue queue;
         uint32_t queueFamilyIndex;
