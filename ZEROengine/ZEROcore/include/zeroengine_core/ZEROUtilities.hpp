@@ -36,4 +36,5 @@ namespace ZEROengine {
         return ret;
     }
 } // namespace ZEROengine
-#endif
+
+#endif //#ifndef ZEROENGINE_UTILITIES_H

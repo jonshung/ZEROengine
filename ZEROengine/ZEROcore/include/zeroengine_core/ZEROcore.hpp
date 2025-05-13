@@ -17,4 +17,5 @@ namespace ZEROengine {
         void cleanup();
     };
 } // namespace ZEROengine
+
 #endif // #ifndef ZEROENGINE_CORE_H

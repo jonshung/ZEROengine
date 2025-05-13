@@ -1,5 +1,5 @@
-#ifndef ZEROENGINE_VULKAN_WINDOW_H
-#define ZEROENGINE_VULKAN_WINDOW_H
+#ifndef ZEROENGINE_VULKANWINDOW_H
+#define ZEROENGINE_VULKANWINDOW_H
 
 #include "vulkan/vulkan.hpp"
 
@@ -65,4 +65,4 @@ namespace ZEROengine {
     }; // class VulkanWindow
 } // namespace ZEROengine
 
-#endif //#ifndef ZEROENGINE_VULKAN_WINDOW_H
+#endif //#ifndef ZEROENGINE_VULKANWINDOW_H

@@ -13,6 +13,7 @@ set(ZEROengineVulkan_Sources
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanDevice.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanGraphicalContext.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanGraphicalModule.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanHardwareBuffer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanPipelineManager.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanWindow.cpp
 )

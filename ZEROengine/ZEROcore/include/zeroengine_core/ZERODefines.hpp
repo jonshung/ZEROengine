@@ -74,4 +74,4 @@ typedef enum ZEROPlatform {
     } \
 } while (0)
 
-#endif // #ifndef ZEROENGINE_ERRORS_H
+#endif // #ifndef ZEROENGINE_DEFINES_H

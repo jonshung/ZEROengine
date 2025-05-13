@@ -1,5 +1,5 @@
-#ifndef ZEROENGINE_VULKAN_DEFINE_H
-#define ZEROENGINE_VULKAN_DEFINE_H
+#ifndef ZEROENGINE_VULKANDEFINE_H
+#define ZEROENGINE_VULKANDEFINE_H
 
 #include <vulkan/vk_enum_string_helper.h>
 #include <glm/glm.hpp>
@@ -25,7 +25,7 @@ namespace ZEROengine {
     public:
         virtual VkVertexInputBindingDescription bindingDescription(const uint32_t &binding_index) = 0;
         virtual std::vector<VkVertexInputAttributeDescription> attributesDescription(const uint32_t &binding_index) = 0;
-    };
+    }; // class VulkanVertexInputBinding
 
     class VulkanBaseVertexInputBinding : public VulkanVertexInputBinding {
     public:
@@ -50,7 +50,7 @@ namespace ZEROengine {
             attributes_desc[1].offset = offsetof(BaseVertex, v_color);
             return attributes_desc;
         }
-    };
+    }; // class VulkanBaseVertexInputBinding
 
     struct BaseUniformObject {
         glm::mat4 model;
@@ -61,7 +61,7 @@ namespace ZEROengine {
     class VulkanUniformBufferLayout {
     public:
         virtual VkDescriptorSetLayoutBinding bindingDescription(const uint32_t &binding_index) = 0;
-    };
+    }; // class VulkanUniformBufferLayout
 
     class VulkanBaseUniformBufferLayout : public VulkanUniformBufferLayout {
     public:
@@ -73,7 +73,7 @@ namespace ZEROengine {
             ubo_layout_binding.stageFlags = VK_SHADER_STAGE_VERTEX_BIT | VK_SHADER_STAGE_FRAGMENT_BIT;
             return ubo_layout_binding;
         }
-    };
+    }; // class VulkanBaseUniformBufferLayout
 
 } // namespace ZEROengine
 
@@ -86,4 +86,5 @@ namespace ZEROengine {
         ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, __call_except + " failed with " + std::string(string_VkResult(__rslt))); \
     } \
 } while(0)
-#endif // #ifndef ZEROENGINE_VULKAN_DEFINE_H
+
+#endif // #ifndef ZEROENGINE_VULKANDEFINE_H

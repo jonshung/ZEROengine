@@ -10,4 +10,5 @@ namespace ZEROengine {
 
     void MurmurHash3_x64_128 ( const void * key, int len, uint32_t seed, void * out );
 } // namespace ZEROengine
-#endif
+
+#endif // #ifndef ZEROENGINE_MURMURHASH3_H

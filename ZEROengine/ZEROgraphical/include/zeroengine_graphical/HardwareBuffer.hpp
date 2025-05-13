@@ -1,5 +1,5 @@
-#ifndef ZEROENGINE_HARDWARE_BUFFER_H
-#define ZEROENGINE_HARDWARE_BUFFER_H
+#ifndef ZEROENGINE_HARDWAREBUFFER_H
+#define ZEROENGINE_HARDWAREBUFFER_H
 
 namespace ZEROengine {
     class HardwareBuffer {
@@ -12,4 +12,4 @@ namespace ZEROengine {
     }; // class HardwareBuffer
 } // namespace ZEROengine
 
-#endif // #ifndef ZEROENGINE_HARDWARE_BUFFER_H
+#endif // #ifndef ZEROENGINE_HARDWAREBUFFER_H

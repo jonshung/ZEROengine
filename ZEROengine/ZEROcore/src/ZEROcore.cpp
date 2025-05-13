@@ -4,6 +4,6 @@
 
 namespace ZEROengine {
     std::shared_ptr<GraphicalModule> ZEROcore::getGraphicalModule() {
-        return this->m_graphical_module;
+        return m_graphical_module;
     }
-}
+} // namespace ZEROengine

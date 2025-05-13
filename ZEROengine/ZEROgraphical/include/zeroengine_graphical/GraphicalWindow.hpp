@@ -5,7 +5,6 @@
 
 #include <string>
 #include <cstdint>
-#include <unordered_map>
 
 namespace ZEROengine {
     struct WindowTransform {
@@ -87,6 +86,7 @@ namespace ZEROengine {
         virtual void notifyClosing();
 
         virtual void cleanup() {};
-    }; // class RenderWindow
+    }; // class GraphicalWindow
 } // namespace ZEROengine
-#endif // #ifndef ZEROENGINE_RENDER_WINDOW_H
+
+#endif // #ifndef ZEROENGINE_GRAPHICALWINDOW_H

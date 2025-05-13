@@ -1,11 +1,4 @@
-#include <cstdint>
-#include <fstream>
 #include <memory>
-#include <utility>
-#include <unordered_map>
-#include <vector>
-#include <array>
-#include <iostream>
 
 #include "zeroengine_core/ApplicationContext.hpp"
 #include "zeroengine_graphical/GraphicalModule.hpp"
@@ -19,12 +12,12 @@ namespace ZEROengine {
     }
 
     void ApplicationContext::mainLoop() {
-        ZERO_ASSERT(this->m_core != nullptr, "Core is not initialized!");
+        ZERO_ASSERT(m_core != nullptr, "Core is not initialized!");
 
-        std::shared_ptr<GraphicalModule> graphical_module = this->m_core->getGraphicalModule();
+        std::shared_ptr<GraphicalModule> graphical_module = m_core->getGraphicalModule();
         ZERO_ASSERT(graphical_module != nullptr, "Graphical module not found!");
 
-        while(!this->m_quitting_signal) {
+        while(!m_quitting_signal) {
             if(graphical_module->isOff()) {
                 break;
             }
@@ -32,11 +25,15 @@ namespace ZEROengine {
         }
     }
 
+    void ApplicationContext::quit() {
+        m_quitting_signal = true;
+    }
+
     void ApplicationContext::cleanup() {
-        this->m_core->cleanup();
+        m_core->cleanup();
     }
 
     ApplicationContext::~ApplicationContext() {
-        this->cleanup();
+        cleanup();
     }
 } // namespace ZEROengine

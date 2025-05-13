@@ -1,5 +1,5 @@
-#ifndef ZEROENGINE_VULKAN_RENDERING_CONTEXT_H
-#define ZEROENGINE_VULKAN_RENDERING_CONTEXT_H
+#ifndef ZEROENGINE_VULKANDEVICE_H
+#define ZEROENGINE_VULKANDEVICE_H
 
 #include "vulkan/vulkan.hpp"
 #include "vk_mem_alloc.h"
@@ -15,16 +15,6 @@
 #include "zeroengine_core/ZERODefines.hpp"
 
 namespace ZEROengine {
-    // required device extensions
-    const std::vector<const char*> const_device_extensions = {
-        VK_KHR_SWAPCHAIN_EXTENSION_NAME
-    };
-
-    // debug validation layers
-    const std::vector<const char*> const_dbg_validation_layers = {
-        "VK_LAYER_KHRONOS_validation"
-    };
-
     #ifdef NDEBUG
         const bool dbg_enable_validation_layers = false;
     #else
@@ -52,18 +42,7 @@ namespace ZEROengine {
 
     // initialization and cleanup procedures
     public:
-        static constexpr const char* getRequiredExtension() {
-    #if defined(VK_USE_PLATFORM_XCB_KHR)
-            return VK_KHR_XCB_SURFACE_EXTENSION_NAME;
-    #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
-            return VK_KHR_WAYLAND_SURFACE_EXTENSION_NAME;
-    #elif defined(VK_USE_PLATFORM_WIN32_KHR)
-            return VK_KHR_WIN32_SURFACE_EXTENSION_NAME;
-    #elif defined(VK_USE_PLATFORM_ANDROID_KHR)
-            return VK_KHR_ANDROID_SURFACE_EXTENSION_NAME;
-    #endif
-            return "";
-        }
+        static constexpr const char* getRequiredExtension();
 
         VulkanDevice();
         void initVulkan();
@@ -117,18 +96,8 @@ namespace ZEROengine {
         VkQueueInfo getPresentationQueue();
         
 
-        VkDevice getDevice() {
-            if(this->m_vk_device == VK_NULL_HANDLE) {
-                ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Vulkan logical device handle is null.");
-            }
-            return this->m_vk_device;
-        }
-        VkPhysicalDevice getPhysicalDevice() {
-            if(this->m_vk_physical_device == VK_NULL_HANDLE) {
-                ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Vulkan physical device handle is null.");
-            }
-            return this->m_vk_physical_device;
-        }
+        VkDevice getDevice();
+        VkPhysicalDevice getPhysicalDevice();
         SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice &phys_device);
         SwapChainSupportDetails querySwapChainSupport_Surface(const VkSurfaceKHR &surface, const VkPhysicalDevice &phys_device);
 
@@ -137,9 +106,8 @@ namespace ZEROengine {
 
         void waitForFence(VkFence fence);
         void releaseFence(VkFence fence);
-        void stall() {
-            vkDeviceWaitIdle(this->m_vk_device);
-        }
+        void stall();
     }; // class VulkanDevice
 } // namespace ZEROengine
-#endif // #ifndef VULKAN_RENDERING_CONTEXT_H
+
+#endif // #ifndef ZEROENGINE_VULKANDEVICE_H

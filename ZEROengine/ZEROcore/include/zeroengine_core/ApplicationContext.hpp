@@ -24,10 +24,9 @@ namespace ZEROengine {
         void cleanup();
 
     public:
-        void quit() {
-            this->m_quitting_signal = true;
-        }
+        void quit();
         ~ApplicationContext();
-    };  // Class ApplicationContext
+    };  // class ApplicationContext
 } // namespace ZEROengine
+
 #endif // #ifndef ZEROENGINE_APPLICATIONCONTEXT_H

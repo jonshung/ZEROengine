@@ -11,13 +11,14 @@ namespace ZEROengine {
 
         virtual void beginRecording() = 0;
         virtual void endRecording() = 0;
-    };
+    }; // class Context
 
     class GraphicalContext : public Context {
     public:
         virtual void bindVertex() = 0;
         virtual void bindPipeline() = 0;
         virtual void draw() = 0;
-    };
-}
+    }; // class GraphicalContext
+} // namespace ZEROengine
+
 #endif // #ifndef ZEROENGINE_GRAPHICALCONTEXT_H

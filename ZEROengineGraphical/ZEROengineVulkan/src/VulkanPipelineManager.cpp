@@ -12,6 +12,20 @@ namespace ZEROengine {
     m_pipeline_buffer{}
     {}
 
+
+    VulkanPipelineObject VulkanPipelineManager::getPipeline(std::size_t index) {
+        return m_pipeline_buffer[index];
+    }
+    std::unordered_map<std::size_t, VulkanPipelineObject>& VulkanPipelineManager::getAllPipelines() {
+        return m_pipeline_buffer;
+    }
+
+    void VulkanPipelineManager::cleanup(VkDevice device) {
+        for(auto &[key, pipeline] : m_pipeline_buffer) {
+            vkDestroyPipeline(device, pipeline.vk_pipeline, nullptr);
+        }
+    }
+    
     // std::vector<std::size_t> VulkanPipelineManager::requestGraphicsPipelines(
     //     const VkDevice &device, 
     //     const VulkanGraphicsPipelineTemplate &pipeline_template, 
@@ -34,7 +48,7 @@ namespace ZEROengine {
     //     for(const ShaderData &component : data) {
     //         std::size_t hash = hash_combine(common_hash, component.vertex_data.first, component.vertex_data.second);
     //         hash = hash_combine(hash, component.fragment_data.first, component.fragment_data.second);
-    //         if(this->pipeline_buffer.find(hash) == this->pipeline_buffer.end()) {
+    //         if(pipeline_buffer.find(hash) == pipeline_buffer.end()) {
     //             submitting_job.push_back(component);
     //             ret_hash.push_back(hash);
     //         }
@@ -42,8 +56,8 @@ namespace ZEROengine {
 
     //     std::vector<VkPipeline> produces = pipeline_template.produce(device, render_pass, submitting_job);
     //     for(std::size_t i = 0; i < ret_hash.size(); ++i) {
-    //         this->pipeline_buffer[ret_hash[i]].vk_pipeline = produces[i];
-    //         this->pipeline_buffer[ret_hash[i]].vk_pipeline_layout = pipeline_template.pipeline_layout;
+    //         pipeline_buffer[ret_hash[i]].vk_pipeline = produces[i];
+    //         pipeline_buffer[ret_hash[i]].vk_pipeline_layout = pipeline_template.pipeline_layout;
     //     }
     //     return ret_hash;
     // }

@@ -1,5 +1,5 @@
-#ifndef ZEROENGINE_VULKAN_CONTEXT_H
-#define ZEROENGINE_VULKAN_CONTEXT_H
+#ifndef ZEROENGINE_VULKANCONTEXT_H
+#define ZEROENGINE_VULKANCONTEXT_H
 
 #include "zeroengine_graphical/GraphicalContext.hpp"
 #include "vulkan/vulkan.hpp"
@@ -18,6 +18,7 @@ namespace ZEROengine {
 
         void bindPipeline() override final;
         void bindVertex() override final;
-    };
-}
-#endif // #ifndef ZEROENGINE_VULKAN_CONTEXT_H
+    }; // class VulkanGraphicalContext
+} // namespace ZEROengine
+
+#endif // #ifndef ZEROENGINE_VULKANCONTEXT_H

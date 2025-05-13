@@ -1,5 +1,5 @@
-#ifndef ZEROENGINE_VULKAN_GRAPHICAL_MODULE_H
-#define ZEROENGINE_VULKAN_GRAPHICAL_MODULE_H
+#ifndef ZEROENGINE_VULKANGRAPHICALMODULE_H
+#define ZEROENGINE_VULKANGRAPHICALMODULE_H
 
 #include <memory>
 
@@ -36,7 +36,6 @@ namespace ZEROengine {
         
         void cleanup() override;
     }; // class VulkanGraphicalModule
-
 } // namespace ZEROengine
 
-#endif // #ifndef ZEROENGINE_VULKAN_GRAPHICAL_MODULE_H
+#endif // #ifndef ZEROENGINE_VULKANGRAPHICALMODULE_H
