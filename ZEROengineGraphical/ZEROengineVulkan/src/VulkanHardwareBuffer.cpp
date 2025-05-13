@@ -17,7 +17,7 @@ namespace ZEROengine {
 
     VmaAllocationInfo VulkanHardwareBuffer::allocate( VmaAllocator &allocator, const VkDeviceSize &size, 
                                 const VkBufferUsageFlags &usage, const VmaAllocationCreateFlags &flags,
-                                const VmaMemoryUsage mem_usage_flag = VMA_MEMORY_USAGE_AUTO_PREFER_DEVICE) {
+                                const VmaMemoryUsage mem_usage_flag) {
         m_request_size = size;
         
         VkBufferCreateInfo buffer_info{};
@@ -48,7 +48,7 @@ namespace ZEROengine {
         return alloc_ret_info;
     }
 
-    VkDeviceSize VulkanHardwareBuffer::getSize(VmaAllocator &allocator) {
+    VkDeviceSize VulkanHardwareBuffer::getSize(VmaAllocator &allocator) const {
         VmaAllocationInfo info;
         vmaGetAllocationInfo(allocator, m_vma_mem_alloc, &info);
         return info.size;
