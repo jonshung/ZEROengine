@@ -1,16 +1,16 @@
-#ifndef ZEROENGINE_GRAPHICALCONTEXT_H
-#define ZEROENGINE_GRAPHICALCONTEXT_H
+#ifndef ZEROENGINE_GPUCONTEXT_H
+#define ZEROENGINE_GPUCONTEXT_H
 
 #include <memory>
 #include <list>
 #include <cstdint>
 
-#include "zeroengine_graphical/GraphicalCommandBuffer.hpp"
+#include "zeroengine_graphical/GPUCommandBuffer.hpp"
 
 namespace ZEROengine {
-    class Context {
+    class GPUContext {
     private:
-        std::list<std::shared_ptr<CommandBuffer>> m_command_buffers;
+        std::list<std::shared_ptr<GPUCommandBuffer>> m_command_buffers;
 
     public:
         virtual void init() = 0;
@@ -22,13 +22,13 @@ namespace ZEROengine {
 
         virtual void beginRecording() = 0;
         virtual void endRecording() = 0;
-    }; // class Context
+    }; // class GPUContext
 
-    class GraphicalContext : public Context {
+    class GraphicalContext : public GPUContext {
     private:
         virtual void beginRecording() override = 0;
         virtual void endRecording() override = 0;
     }; // class GraphicalContext
 } // namespace ZEROengine
 
-#endif // #ifndef ZEROENGINE_GRAPHICALCONTEXT_H
+#endif // #ifndef ZEROENGINE_GPUCONTEXT_H

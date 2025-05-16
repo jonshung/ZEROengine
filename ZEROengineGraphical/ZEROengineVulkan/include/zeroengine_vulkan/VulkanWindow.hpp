@@ -8,19 +8,24 @@
 #include <unordered_map>
 #include <memory>
 
-#include "zeroengine_graphical/GraphicalWindow.hpp"
+#include "zeroengine_graphical/GPUWindow.hpp"
 #include "zeroengine_core/ZERODefines.hpp"
 #include "zeroengine_vulkan/VulkanDevice.hpp"
 
 namespace ZEROengine {
+    class VulkanDevice;
+    
     /**
      * @brief A structure to manage Render Targets-related attributes.
      * 
      */
-    class VulkanWindow : public GraphicalWindow {
+    class VulkanWindow : public GPUWindow {
     protected:
-        std::weak_ptr<VulkanDevice> m_vulkan_device;
+        VkDevice m_vk_device;
+        VkPhysicalDevice m_vk_phys_device;
+
         VkSurfaceKHR m_vk_surface;
+        VulkanQueueInfo m_vulkan_presentation_queue;
 
         VkSwapchainKHR m_vk_swapchain;
         std::vector<VkImage> m_vk_swapchain_images;
@@ -29,6 +34,7 @@ namespace ZEROengine {
         VkRenderPass m_vk_swapchain_renderpass;
         VkFormat m_vk_swapchain_format;
 
+        int64_t m_graphical_queue_family;
         uint32_t m_acquired_swapchain;
 
     private:
@@ -43,12 +49,21 @@ namespace ZEROengine {
         
     public:
         VulkanWindow(
-            const std::shared_ptr<VulkanDevice>&,
+            const VkDevice &vk_device,
+            const VkPhysicalDevice &vk_phys_device,
+            const VkSurfaceKHR &vk_surface,
             const std::string &title,
             const WindowTransform &transform,
             const WindowSetting &setting,
             const WindowStyle &style
         );
+        void init() override final;
+        void setGraphicalQueueFamily(const uint32_t &v);
+
+        std::optional<uint32_t> queryPresentationQueueIndex() const;
+        std::optional<VkDeviceQueueCreateInfo> queryPresentationQueueCreation() const;
+
+        SwapChainSupportDetails querySwapChainSupport();
 
         VkSwapchainKHR getSwapchain() const;
         VkFramebuffer getFramebuffer(const uint32_t &index) const;

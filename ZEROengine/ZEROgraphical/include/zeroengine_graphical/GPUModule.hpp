@@ -1,5 +1,5 @@
-#ifndef ZEROENGINE_GRAPHICALMODULE_H
-#define ZEROENGINE_GRAPHICALMODULE_H
+#ifndef ZEROENGINE_GPUMODULE_H
+#define ZEROENGINE_GPUMODULE_H
 
 #include "zeroengine_core/ZERODefines.hpp"
 
@@ -8,18 +8,19 @@
 #include <memory>
 
 namespace ZEROengine {
-    class GraphicalModule {
+    class GPUModule {
     protected:
         bool m_is_off = false;
     public:
-        GraphicalModule() {}
+        GPUModule() {}
 
         virtual void initGraphicalModule() = 0;
+
         virtual void drawFrame() = 0;
         virtual bool isOff() const final { return m_is_off; }
         
         virtual void cleanup() = 0;
-    }; // class GraphicalModule
+    }; // class GPUModule
 } // namespace ZEROengine
 
-#endif //#ifndef ZEROENGINE_GRAPHICALMODULE_H
+#endif //#ifndef ZEROENGINE_GPUMODULE_H

@@ -1,17 +1,17 @@
-#ifndef ZEROENGINE_GRAPHICALCOMMANDBUFFER_H
-#define ZEROENGINE_GRAPHICALCOMMANDBUFFER_H
+#ifndef ZEROENGINE_GPUCOMMANDBUFFER_H
+#define ZEROENGINE_GPUCOMMANDBUFFER_H
 
 #include <memory>
 
 namespace ZEROengine {
-    class CommandBuffer {
+    class GPUCommandBuffer {
     public:
         virtual void init() = 0;
         virtual void cleanup() = 0;
 
-    }; // class Context
+    }; // class GPUCommandBuffer
 
-    class GraphicalCommandBuffer : public CommandBuffer {
+    class GraphicalCommandBuffer : public GPUCommandBuffer {
     public:
         virtual void bindVertex() = 0;
         virtual void bindPipeline() = 0;

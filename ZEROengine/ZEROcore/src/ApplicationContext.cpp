@@ -1,7 +1,7 @@
 #include <memory>
 
 #include "zeroengine_core/ApplicationContext.hpp"
-#include "zeroengine_graphical/GraphicalModule.hpp"
+#include "zeroengine_graphical/GPUModule.hpp"
 
 namespace ZEROengine {
     void ApplicationContext::init() {
@@ -14,7 +14,7 @@ namespace ZEROengine {
     void ApplicationContext::mainLoop() {
         ZERO_ASSERT(m_core != nullptr, "Core is not initialized!");
 
-        std::shared_ptr<GraphicalModule> graphical_module = m_core->getGraphicalModule();
+        std::shared_ptr<GPUModule> graphical_module = m_core->getGraphicalModule();
         ZERO_ASSERT(graphical_module != nullptr, "Graphical module not found!");
 
         while(!m_quitting_signal) {

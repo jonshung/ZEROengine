@@ -1,9 +1,9 @@
 #ifndef ZEROENGINE_VULKANDEFINE_H
 #define ZEROENGINE_VULKANDEFINE_H
 
+#include "vulkan/vulkan.hpp"
 #include <vulkan/vk_enum_string_helper.h>
 #include <glm/glm.hpp>
-
 #include "zeroengine_core/ZERODefines.hpp"
 
 #include <vector>
@@ -11,7 +11,13 @@
 
 namespace ZEROengine {
 
-    struct VkQueueInfo {
+    struct SwapChainSupportDetails {
+        VkSurfaceCapabilitiesKHR capabilities;
+        std::vector<VkSurfaceFormatKHR> formats;
+        std::vector<VkPresentModeKHR> present_modes;
+    };
+    
+    struct VulkanQueueInfo {
         VkQueue queue;
         uint32_t queueFamilyIndex;
     };

@@ -1,7 +1,7 @@
 #ifndef ZEROENGINE_VULKANCOMMANDBUFFER_H
 #define ZEROENGINE_VULKANCOMMANDBUFFER_H
 
-#include "zeroengine_graphical/GraphicalCommandBuffer.hpp"
+#include "zeroengine_graphical/GPUCommandBuffer.hpp"
 #include "vulkan/vulkan.hpp"
 
 namespace ZEROengine {

@@ -1,13 +1,15 @@
-#include "zeroengine_vulkan/VulkanDevice.hpp"
-#include <vulkan/vk_enum_string_helper.h>
-#include "vk_mem_alloc.h"
-
 #include <map>
 #include <vector>
 #include <cstdint>
 #include <limits>
 #include <algorithm>
 #include <unordered_set>
+#include <memory>
+
+#include "zeroengine_vulkan/VulkanDevice.hpp"
+#include "zeroengine_vulkan/VulkanContext.hpp"
+#include <vulkan/vk_enum_string_helper.h>
+#include "vk_mem_alloc.h"
 
 namespace ZEROengine {
     // required device extensions
@@ -37,15 +39,17 @@ namespace ZEROengine {
     m_vk_instance{},
     m_vk_physical_device{},
     m_vk_device{}
-    {}
+    {
+        initInstance();
+    }
 
-    void VulkanDevice::initVulkan() {
+    void VulkanDevice::initVulkan(VulkanWindow* vulkan_window) {
         if(const_dbg_enable_validation_layers && !checkValidationLayersSupport()) {
             ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "Validation layer is not supported but required.");
         }
         // preserve order
-        VKInit_initInstance();
-        VKInit_initPhysicalDevice();
+        initPhysicalDevice();
+        initLogicalDevice(vulkan_window);
         
         // VMA
         VmaAllocatorCreateInfo vma_create{};
@@ -57,7 +61,7 @@ namespace ZEROengine {
         ZERO_VK_CHECK_EXCEPT(vmaCreateAllocator(&vma_create, &m_vma_alloc));
     }
 
-    void VulkanDevice::VKInit_initInstance() {
+    void VulkanDevice::initInstance() {
         VkApplicationInfo app_info{};
         app_info.sType = VK_STRUCTURE_TYPE_APPLICATION_INFO;
         app_info.pApplicationName = "ZEROengine";
@@ -94,7 +98,7 @@ namespace ZEROengine {
         ZERO_VK_CHECK_EXCEPT(vkCreateInstance(&create_info, nullptr, &m_vk_instance));
     }
 
-    void VulkanDevice::VKInit_initPhysicalDevice() {
+    void VulkanDevice::initPhysicalDevice() {
         if(m_vk_instance == VK_NULL_HANDLE) {
             ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Vulkan instance handle is null.");
         }
@@ -109,41 +113,27 @@ namespace ZEROengine {
         selectPhysicalDevice(phys_devices);
     }
 
-    void VulkanDevice::VKInit_initLogicalDevice(const VkSurfaceKHR &surface) {
+    void VulkanDevice::initLogicalDevice(VulkanWindow* vulkan_window) {
         if(m_vk_instance == VK_NULL_HANDLE) {
             ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Vulkan instance handle is null.");
         }
         if(m_vk_physical_device == VK_NULL_HANDLE) {
             ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Vulkan physical device handle is null.");
         }
-        QueueFamilyIndices graphics_queue = queryQueueFamily(m_vk_physical_device, {VK_QUEUE_GRAPHICS_BIT});
-        if(!graphics_queue.exists()) {
-            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "No queue is found that can support graphics.");
-        }
-        m_vk_graphics_queue.queueFamilyIndex = graphics_queue.queue_indices[VK_QUEUE_GRAPHICS_BIT].value(); // should exists since we already check suitability.
-        
-        std::optional<uint32_t> presentation_queue = queryPresentationQueueFamily_Surface(surface, m_vk_physical_device); // again, should exists
-        if(!presentation_queue.has_value()) {
-            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "Presentation queue is not exists, this should not be happening!");
-        }
-        m_vk_presentation_queue.queueFamilyIndex = presentation_queue.value();
-        
-        std::unordered_set<uint32_t> queue_indices({ m_vk_graphics_queue.queueFamilyIndex, static_cast<uint32_t>(presentation_queue.value()) });
-        std::vector<VkDeviceQueueCreateInfo> queue_create_infos{};
-        float queuePriority = 1.0f;
-        for (const uint32_t &queue_family : queue_indices) {
-            VkDeviceQueueCreateInfo queue_create_info{};
-            queue_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
-            queue_create_info.queueFamilyIndex = queue_family;
-            queue_create_info.queueCount = 1;
-            queue_create_info.pQueuePriorities = &queuePriority;
-            queue_create_infos.push_back(queue_create_info);
-        }
 
         VkPhysicalDeviceFeatures device_features{};
 
+        std::vector<VkDeviceQueueCreateInfo> queue_create_infos = m_vulkan_queue_manager->queryQueueCreation(m_vk_physical_device);
+        if(vulkan_window) {
+            std::optional<VkDeviceQueueCreateInfo> presentation_queue_create_info = vulkan_window->queryPresentationQueueCreation();
+            if(!presentation_queue_create_info.has_value()) {
+                ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "VulkanWindow cannot find a presentation queue.");
+            }
+            queue_create_infos.push_back(std::move(presentation_queue_create_info.value()));
+        }
+
         VkDeviceCreateInfo device_create_info{};
-        device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO;
+        device_create_info.sType = VK_STRUCTURE_TYPE_DEVICE_CREATE_INFO; 
         device_create_info.pQueueCreateInfos = queue_create_infos.data();
         device_create_info.queueCreateInfoCount = static_cast<uint32_t>(queue_create_infos.size());
         device_create_info.pEnabledFeatures = &device_features;
@@ -157,8 +147,9 @@ namespace ZEROengine {
             device_create_info.enabledLayerCount = 0;
         }
         ZERO_VK_CHECK_EXCEPT(vkCreateDevice(m_vk_physical_device, &device_create_info, nullptr, &m_vk_device));
-        vkGetDeviceQueue(m_vk_device, m_vk_graphics_queue.queueFamilyIndex, 0, &m_vk_graphics_queue.queue);
-        vkGetDeviceQueue(m_vk_device, m_vk_presentation_queue.queueFamilyIndex, 0, &m_vk_presentation_queue.queue);
+
+        // initialize queue manager
+        m_vulkan_queue_manager->init(m_vk_device);
     }
 
     bool VulkanDevice::checkValidationLayersSupport(std::string *ret) {
@@ -224,18 +215,23 @@ namespace ZEROengine {
         uint32_t score = 0;
         VkPhysicalDeviceProperties device_properties{};
         VkPhysicalDeviceFeatures device_features{};
-        vkGetPhysicalDeviceProperties(phys_device, &device_properties);
+        VkPhysicalDeviceMemoryProperties device_memory{};
         vkGetPhysicalDeviceFeatures(phys_device, &device_features);
+        vkGetPhysicalDeviceProperties(phys_device, &device_properties);
+        vkGetPhysicalDeviceMemoryProperties(phys_device, &device_memory);
 
-        if(device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) score += 1000;
+        if(!device_features.geometryShader) return 0; // since we need geometry shader
+        if(!checkDeviceExtensionSupport(phys_device)) return 0;
+
+        if(device_properties.deviceType == VK_PHYSICAL_DEVICE_TYPE_DISCRETE_GPU) score += 100;
         else score += 10;
         score += device_properties.limits.maxImageDimension2D;
 
-        // preliminary checks
-        if(!device_features.geometryShader) return 0; // since we need geometry shader
-        QueueFamilyIndices queue_indices = queryQueueFamily(phys_device, {VK_QUEUE_GRAPHICS_BIT});
-        if(!checkDeviceExtensionSupport(phys_device)) return 0;
-        
+        VkMemoryHeap* heap_ptr = device_memory.memoryHeaps;
+        const auto heaps = std::vector<VkMemoryHeap>(heap_ptr, heap_ptr + device_memory.memoryHeapCount);
+        for(const auto& heap : heaps) {
+            score += heap.size*10;
+        }
         return score;
     }
 
@@ -254,86 +250,15 @@ namespace ZEROengine {
         return required_extensions.empty();
     }
 
-    VulkanDevice::QueueFamilyIndices VulkanDevice::queryQueueFamily(const VkPhysicalDevice &phys_device, const std::vector<uint32_t> &query) {
-        uint32_t queue_family_count = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(phys_device, &queue_family_count, nullptr);
-
-        std::vector<VkQueueFamilyProperties> queue_families(queue_family_count);
-        vkGetPhysicalDeviceQueueFamilyProperties(phys_device, &queue_family_count, queue_families.data());
-        
-        QueueFamilyIndices q_index{};
-        std::unordered_set<uint32_t> query_set(query.begin(), query.end());
-        uint32_t query_size = query_set.size();
-
-        uint32_t i = 0;
-        for(const auto& family : queue_families) {
-            if(query_size <= 0) break; // found all queries
-            for(const uint32_t& q : query_set) {
-                if(q_index.queue_indices[q].has_value()) continue; // already found a queue
-                if(family.queueFlags & q) {
-                    q_index.queue_indices[q] = i;
-                    query_size--;
-                }
-            }
-            i++;
+    std::weak_ptr<GraphicalContext> VulkanDevice::allocateGraphicalContext() {
+        VulkanQueueInfo graphical_queue_info;
+        if(!m_vulkan_queue_manager->getQueueInfo(VK_QUEUE_GRAPHICS_BIT, graphical_queue_info)) {
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "Queue manager cannot find a graphical queue.");
         }
-        return q_index;
-    }
+        std::shared_ptr<GraphicalContext> graphical_context = std::make_shared<VulkanGraphicalContext>(m_vk_device, graphical_queue_info.queueFamilyIndex);
+        m_graphical_contexts.push_back(graphical_context);
 
-    // TODO: add support for native presentation queue querying with respect to each platform's current active primary display
-    std::optional<uint32_t> VulkanDevice::queryPresentationQueueFamily_Surface(const VkSurfaceKHR &surface, const VkPhysicalDevice &phys_device) {
-        uint32_t queue_family_count = 0;
-        vkGetPhysicalDeviceQueueFamilyProperties(phys_device, &queue_family_count, nullptr);
-        for(uint32_t i = 0; i < queue_family_count; ++i) {
-            VkBool32 presentSupport = false;
-            vkGetPhysicalDeviceSurfaceSupportKHR(phys_device, i, surface, &presentSupport);
-            if(presentSupport) return std::optional(static_cast<int32_t>(i));
-            i++;
-        }
-        return {};
-    }
-
-    // todo: add support for native queue querying outside of surfaces.
-    VulkanDevice::SwapChainSupportDetails VulkanDevice::querySwapChainSupport(const VkPhysicalDevice &phys_device) {
-        SwapChainSupportDetails details{};
-        uint32_t format_count = 0, present_mode_count = 0;
-        (void) phys_device;
-        (void) format_count;
-        (void) present_mode_count;
-        #if defined(VK_USE_PLATFORM_ANDROID_KHR)
-            // not supported yet
-        #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
-            // not supported yet
-        #elif defined(VK_USE_PLATFORM_XLIB_KHR)
-            // not supported yet
-        #endif
-        return details;
-    }
-
-    VulkanDevice::SwapChainSupportDetails VulkanDevice::querySwapChainSupport_Surface(const VkSurfaceKHR &surface, const VkPhysicalDevice &phys_device) {
-        if(surface == VK_NULL_HANDLE) {
-            ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Surface handle is null.");
-        }
-        if(phys_device == VK_NULL_HANDLE) {
-            ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Physical device handle is null.");
-        }
-        SwapChainSupportDetails details{};
-        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(phys_device, surface, &details.capabilities);
-
-        uint32_t format_count = 0;
-        vkGetPhysicalDeviceSurfaceFormatsKHR(phys_device, surface, &format_count, nullptr);
-        if(format_count > 0) {
-            details.formats.resize(format_count);
-            vkGetPhysicalDeviceSurfaceFormatsKHR(phys_device, surface, &format_count, details.formats.data());
-        }
-
-        uint32_t present_mode_count = 0;
-        vkGetPhysicalDeviceSurfacePresentModesKHR(phys_device, surface, &present_mode_count, nullptr);
-        if(present_mode_count > 0) {
-            details.present_modes.resize(present_mode_count);
-            vkGetPhysicalDeviceSurfacePresentModesKHR(phys_device, surface, &present_mode_count, details.present_modes.data());
-        }
-        return details;
+        return graphical_context;
     }
 
     VkDevice VulkanDevice::getDevice() {
@@ -357,21 +282,8 @@ namespace ZEROengine {
         return m_vk_instance;
     }
 
-    VkQueueInfo VulkanDevice::getGraphicalQueue() {
-        if(m_vk_graphics_queue.queue == VK_NULL_HANDLE) {
-            ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Vulkan graphics queue handle is null.");
-        }
-        return m_vk_graphics_queue;
-    }
-    VkQueueInfo VulkanDevice::getPresentationQueue() {
-        if(m_vk_presentation_queue.queue == VK_NULL_HANDLE) {
-            ZERO_EXCEPT(ZEROResultEnum::ZERO_NULL_POINTER, "Vulkan presentation queue handle is null."); 
-        }
-        return m_vk_presentation_queue;
-    }
-
-    void VulkanDevice::waitForFence(VkFence fence) {
-        vkWaitForFences(m_vk_device, 1, &fence, VK_TRUE, UINT64_MAX);
+    std::weak_ptr<VulkanQueueManager> VulkanDevice::getQueueManager() {
+        return m_vulkan_queue_manager;
     }
 
     void VulkanDevice::releaseFence(VkFence fence) {

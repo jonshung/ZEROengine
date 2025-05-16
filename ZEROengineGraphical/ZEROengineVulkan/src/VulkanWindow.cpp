@@ -4,33 +4,47 @@
 
 namespace ZEROengine {
     VulkanWindow::VulkanWindow(
-        const std::shared_ptr<VulkanDevice> &vulkan_device,
+        const VkDevice &vk_device,
+        const VkPhysicalDevice &vk_phys_device,
+        const VkSurfaceKHR &vk_surface,
         const std::string &title,
         const WindowTransform &transform,
         const WindowSetting &setting,
         const WindowStyle &style
     ) :
-    GraphicalWindow(title, transform, setting, style),
-    m_vulkan_device{vulkan_device},
-    m_vk_surface{},
+    GPUWindow(title, transform, setting, style),
+    m_vk_device{vk_device},
+    m_vk_phys_device{vk_phys_device},
+    m_vk_surface{vk_surface},
+    m_vulkan_presentation_queue{},
     m_vk_swapchain{},
     m_vk_swapchain_images{},
     m_vk_swapchain_image_views{},
     m_vk_swapchain_framebuffers{},
     m_vk_swapchain_renderpass{},
     m_vk_swapchain_format{},
+    m_graphical_queue_family{-1},
     m_acquired_swapchain{}
     {}
 
-    void VulkanWindow::initSwapChain() {
-        std::shared_ptr<VulkanDevice> vulkan_device = m_vulkan_device.lock();
-        if(!vulkan_device) {
-            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "Vulkan Device expired.");
+    void VulkanWindow::init() {
+        std::optional<uint32_t> queue_family_index = queryPresentationQueueIndex();
+        if(!queue_family_index.has_value()) {
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "Cannot find a presentation queue matching the requested surface.");
         }
-        VkPhysicalDevice phys_device = vulkan_device->getPhysicalDevice();;
-        VkDevice device = vulkan_device->getDevice();
+        vkGetDeviceQueue(m_vk_device, queue_family_index.value(), 0, &m_vulkan_presentation_queue.queue);
+        if(m_vulkan_presentation_queue.queue == VK_NULL_HANDLE) {
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "Cannot get a presentation queue!");
+        }
+        m_vulkan_presentation_queue.queueFamilyIndex = queue_family_index.value();
+    }
 
-        VulkanDevice::SwapChainSupportDetails swap_chain_support = vulkan_device->querySwapChainSupport_Surface(m_vk_surface, phys_device);
+    void VulkanWindow::setGraphicalQueueFamily(const uint32_t &v) {
+        m_graphical_queue_family = static_cast<int64_t>(v);
+    }
+
+    void VulkanWindow::initSwapChain() {
+        SwapChainSupportDetails swap_chain_support = querySwapChainSupport();
 
         VkSurfaceFormatKHR surface_format = selectSwapchainSurfaceFormat(swap_chain_support.formats);
         VkPresentModeKHR present_mode = selectSwapchainPresentationMode(swap_chain_support.present_modes);
@@ -43,7 +57,7 @@ namespace ZEROengine {
                                     getHeight(), 
                                     swap_chain_support.capabilities.minImageExtent.height, 
                                     swap_chain_support.capabilities.maxImageExtent.height);
-        GraphicalWindow::resize(actual_width, actual_height);
+        GPUWindow::resize(actual_width, actual_height);
         
         VkExtent2D extent = { getWidth(), getHeight() };
         m_vk_swapchain_format = surface_format.format;
@@ -61,13 +75,17 @@ namespace ZEROengine {
         swap_chain_create_info.imageArrayLayers = 1;
         swap_chain_create_info.imageUsage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT;
         
-        VkQueueInfo graphical_queue = vulkan_device->getGraphicalQueue();
-        VkQueueInfo presentation_queue = vulkan_device->getPresentationQueue();;
+        if(m_graphical_queue_family == -1) {
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "VulkanWindow cannot find a graphical queue.");
+        }
+        if(m_vulkan_presentation_queue.queue == VK_NULL_HANDLE) {
+            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "VulkanWindow cannot find a presentation queue.");
+        }
         
-        if (graphical_queue.queueFamilyIndex != presentation_queue.queueFamilyIndex) {
+        if (m_graphical_queue_family != m_vulkan_presentation_queue.queueFamilyIndex) {
             swap_chain_create_info.imageSharingMode = VK_SHARING_MODE_CONCURRENT;
             swap_chain_create_info.queueFamilyIndexCount = 2;
-            uint32_t queue_indices[2] = { graphical_queue.queueFamilyIndex, presentation_queue.queueFamilyIndex};
+            uint32_t queue_indices[2] = { static_cast<uint32_t>(m_graphical_queue_family), m_vulkan_presentation_queue.queueFamilyIndex};
             swap_chain_create_info.pQueueFamilyIndices = queue_indices;
         } else {
             swap_chain_create_info.imageSharingMode = VK_SHARING_MODE_EXCLUSIVE;
@@ -79,7 +97,7 @@ namespace ZEROengine {
         swap_chain_create_info.presentMode = present_mode;
         swap_chain_create_info.clipped = VK_TRUE;
         swap_chain_create_info.oldSwapchain = VK_NULL_HANDLE;
-        ZERO_VK_CHECK_EXCEPT(vkCreateSwapchainKHR(device, &swap_chain_create_info, nullptr, &m_vk_swapchain));
+        ZERO_VK_CHECK_EXCEPT(vkCreateSwapchainKHR(m_vk_device, &swap_chain_create_info, nullptr, &m_vk_swapchain));
     }
 
     VkSwapchainKHR VulkanWindow::getSwapchain() const {
@@ -98,13 +116,80 @@ namespace ZEROengine {
         return m_vk_surface;
     }
 
-    void VulkanWindow::initSwapChainRenderPass() {
-        VkDevice device = VK_NULL_HANDLE;
-        if(auto vulkan_device = m_vulkan_device.lock()) {
-            device = vulkan_device->getDevice();
-        } else {
-            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "Vulkan Device expired.");
+    // TODO: implement this
+    // SwapChainSupportDetails VulkanWindow::querySwapChainSupport() {
+    //     std::shared_ptr<VulkanDevice> vulkan_device = m_vulkan_device.lock();
+    //     if(!vulkan_device) {
+    //         ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "Vulkan Device expired.");
+    //     }
+    //     VkPhysicalDevice phys_device = vulkan_device->getPhysicalDevice();
+
+    //     SwapChainSupportDetails details{};
+    //     uint32_t format_count = 0, present_mode_count = 0;
+    //     (void) phys_device;
+    //     (void) format_count;
+    //     (void) present_mode_count;
+    //     #if defined(VK_USE_PLATFORM_ANDROID_KHR)
+    //         // not supported yet
+    //     #elif defined(VK_USE_PLATFORM_WAYLAND_KHR)
+    //         // not supported yet
+    //     #elif defined(VK_USE_PLATFORM_XLIB_KHR)
+    //         // not supported yet
+    //     #endif
+    //     return details;
+    // }
+
+    SwapChainSupportDetails VulkanWindow::querySwapChainSupport() {
+        SwapChainSupportDetails details{};
+        vkGetPhysicalDeviceSurfaceCapabilitiesKHR(m_vk_phys_device, m_vk_surface, &details.capabilities);
+
+        uint32_t format_count = 0;
+        vkGetPhysicalDeviceSurfaceFormatsKHR(m_vk_phys_device, m_vk_surface, &format_count, nullptr);
+        if(format_count > 0) {
+            details.formats.resize(format_count);
+            vkGetPhysicalDeviceSurfaceFormatsKHR(m_vk_phys_device, m_vk_surface, &format_count, details.formats.data());
         }
+
+        uint32_t present_mode_count = 0;
+        vkGetPhysicalDeviceSurfacePresentModesKHR(m_vk_phys_device, m_vk_surface, &present_mode_count, nullptr);
+        if(present_mode_count > 0) {
+            details.present_modes.resize(present_mode_count);
+            vkGetPhysicalDeviceSurfacePresentModesKHR(m_vk_phys_device, m_vk_surface, &present_mode_count, details.present_modes.data());
+        }
+        return details;
+    }
+
+    std::optional<uint32_t> VulkanWindow::queryPresentationQueueIndex() const {
+        uint32_t queue_family_count = 0;
+        vkGetPhysicalDeviceQueueFamilyProperties(m_vk_phys_device, &queue_family_count, nullptr);
+        for(uint32_t i = 0; i < queue_family_count; ++i) {
+            VkBool32 presentSupport = false;
+            vkGetPhysicalDeviceSurfaceSupportKHR(m_vk_phys_device, i, m_vk_surface, &presentSupport);
+
+            if(presentSupport) {
+                return std::optional<uint32_t>(static_cast<uint32_t>(i));
+            }
+        }
+        return {};
+    }
+
+    std::optional<VkDeviceQueueCreateInfo> VulkanWindow::queryPresentationQueueCreation() const {
+        std::optional<uint32_t> queue_index = queryPresentationQueueIndex();
+        if(!queue_index.has_value()) {
+            return {};
+        }
+        float queuePriority = 1.0f;
+
+        VkDeviceQueueCreateInfo queue_info{};
+        queue_info.sType = VK_STRUCTURE_TYPE_DEVICE_QUEUE_CREATE_INFO;
+        queue_info.pNext = nullptr;
+        queue_info.queueCount = 1;
+        queue_info.queueFamilyIndex = queue_index.value();
+        queue_info.pQueuePriorities = &queuePriority;
+        return std::optional(queue_info);
+    }
+
+    void VulkanWindow::initSwapChainRenderPass() {
         std::array<VkAttachmentDescription, 2> attachments = {};
 
         attachments[0].format = m_vk_swapchain_format;
@@ -168,23 +253,16 @@ namespace ZEROengine {
         render_pass_info.pSubpasses = &subpass;
         render_pass_info.dependencyCount = static_cast<uint32_t>(m_enable_depth_stencil_subpass ? 2 : 1);
         render_pass_info.pDependencies = subpass_dep.data();
-        ZERO_VK_CHECK_EXCEPT(vkCreateRenderPass(device, &render_pass_info, nullptr, &m_vk_swapchain_renderpass));
+        ZERO_VK_CHECK_EXCEPT(vkCreateRenderPass(m_vk_device, &render_pass_info, nullptr, &m_vk_swapchain_renderpass));
     }
 
     void VulkanWindow::initSwapChainRenderTargets() {
-        VkDevice device = VK_NULL_HANDLE;
-        if(auto vulkan_device = m_vulkan_device.lock()) {
-            device = vulkan_device->getDevice();
-        } else {
-            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "Vulkan Device expired.");
-        }
-
         uint32_t image_count = 0;
-        vkGetSwapchainImagesKHR(device, m_vk_swapchain, &image_count, nullptr);
+        vkGetSwapchainImagesKHR(m_vk_device, m_vk_swapchain, &image_count, nullptr);
         m_vk_swapchain_images.resize(image_count);
         m_vk_swapchain_image_views.resize(image_count);
         m_vk_swapchain_framebuffers.resize(image_count);
-        ZERO_VK_CHECK_EXCEPT(vkGetSwapchainImagesKHR(device, m_vk_swapchain, &image_count, m_vk_swapchain_images.data()));
+        ZERO_VK_CHECK_EXCEPT(vkGetSwapchainImagesKHR(m_vk_device, m_vk_swapchain, &image_count, m_vk_swapchain_images.data()));
 
         for(std::size_t i = 0; i < image_count; ++i) {
             VkImageViewCreateInfo img_view_create_info{};
@@ -201,7 +279,7 @@ namespace ZEROengine {
             img_view_create_info.subresourceRange.levelCount = 1;
             img_view_create_info.subresourceRange.baseMipLevel = 0;
             img_view_create_info.subresourceRange.baseArrayLayer = 0;
-            ZERO_VK_CHECK_EXCEPT(vkCreateImageView(device, &img_view_create_info, nullptr, &m_vk_swapchain_image_views[i]));
+            ZERO_VK_CHECK_EXCEPT(vkCreateImageView(m_vk_device, &img_view_create_info, nullptr, &m_vk_swapchain_image_views[i]));
 
             VkImageView* img_view_ref = &m_vk_swapchain_image_views[i];
             VkFramebufferCreateInfo framebuffers_create_info{};
@@ -213,7 +291,7 @@ namespace ZEROengine {
             framebuffers_create_info.pAttachments = img_view_ref;
             framebuffers_create_info.renderPass = m_vk_swapchain_renderpass;
             ZERO_VK_CHECK_EXCEPT(vkCreateFramebuffer(
-                device, 
+                m_vk_device, 
                 &framebuffers_create_info, 
                 nullptr, 
                 &m_vk_swapchain_framebuffers[i]));
@@ -241,15 +319,9 @@ namespace ZEROengine {
         if(call_depth == 64u) {
             ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "Maximum swapchin reacquisition depth.");
         }
-        VkDevice device = VK_NULL_HANDLE;
-        if(auto vulkan_device = m_vulkan_device.lock()) {
-            device = vulkan_device->getDevice();
-        } else {
-            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "Vulkan Device expired.");
-        }
         
         VkResult rslt = vkAcquireNextImageKHR(
-            device, m_vk_swapchain, 
+            m_vk_device, m_vk_swapchain, 
             UINT64_MAX, 
             wait_semaphore, 
             VK_NULL_HANDLE, 
@@ -270,20 +342,13 @@ namespace ZEROengine {
     }
 
     void VulkanWindow::cleanup_swapChain() {
-        VkDevice device = VK_NULL_HANDLE;
-        if(auto vulkan_device = m_vulkan_device.lock()) {
-            device = vulkan_device->getDevice();
-        } else {
-            ZERO_EXCEPT(ZEROResultEnum::ZERO_GRAPHICAL_ERROR, "Vulkan Device expired.");
-        }
-        
         for(auto &framebuffer : m_vk_swapchain_framebuffers) {
-            vkDestroyFramebuffer(device, framebuffer, nullptr);
+            vkDestroyFramebuffer(m_vk_device, framebuffer, nullptr);
         }
         for(auto &img_view : m_vk_swapchain_image_views) {
-            vkDestroyImageView(device, img_view, nullptr);
+            vkDestroyImageView(m_vk_device, img_view, nullptr);
         }
-        vkDestroySwapchainKHR(device, m_vk_swapchain, nullptr);
+        vkDestroySwapchainKHR(m_vk_device, m_vk_swapchain, nullptr);
     }
 
     void VulkanWindow::reload_swapChain() {
@@ -295,15 +360,7 @@ namespace ZEROengine {
     }
 
     void VulkanWindow::cleanup() {
-        VkDevice device = VK_NULL_HANDLE;
-        VkInstance instance = VK_NULL_HANDLE;
-        if(auto vulkan_device = m_vulkan_device.lock()) {
-            device = vulkan_device->getDevice();
-            instance = vulkan_device->getInstance();
-        }
-    
-        vkDestroyRenderPass(device, m_vk_swapchain_renderpass, nullptr);
+        vkDestroyRenderPass(m_vk_device, m_vk_swapchain_renderpass, nullptr);
         cleanup_swapChain();
-        vkDestroySurfaceKHR(instance, m_vk_surface, nullptr);
     }
 } // namespace ZEROengine

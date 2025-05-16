@@ -1,6 +1,6 @@
 set(ZEROengineGraphical_Sources
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/GraphicalWindow.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/HardwareBuffer.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GPUWindow.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/GPUBuffer.cpp
     PARENT_SCOPE
 )
 

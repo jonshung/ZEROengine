@@ -106,7 +106,7 @@ namespace ZEROengine {
         if(this->xcb_wm_net_state != XCB_ATOM_NONE && this->xcb_wm_fullscreen != XCB_ATOM_NONE && fullscreen) {
             xcb_change_property(this->xcb_connection, XCB_PROP_MODE_REPLACE, this->xcb_windowid, this->xcb_wm_net_state,
                                  XCB_ATOM_ATOM, 32u, 1u, &xcb_wm_fullscreen);
-            GraphicalWindow::requestFullscreen();
+            GPUWindow::requestFullscreen();
         }
         xcb_flush(this->xcb_connection);
     }
@@ -219,7 +219,7 @@ namespace ZEROengine {
     }
 
     void VulkanXCBWindow::setHidden(const bool &status) {
-        GraphicalWindow::setHidden(status);
+        GPUWindow::setHidden(status);
 
         if(!status) {
             xcb_map_window(this->xcb_connection, this->xcb_windowid);

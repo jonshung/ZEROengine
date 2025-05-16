@@ -1,5 +1,5 @@
-#ifndef ZEROENGINE_GRAPHICALWINDOW_H
-#define ZEROENGINE_GRAPHICALWINDOW_H
+#ifndef ZEROENGINE_GPUWINDOW_H
+#define ZEROENGINE_GPUWINDOW_H
 
 #include "zeroengine_core/ZERODefines.hpp"
 
@@ -34,7 +34,7 @@ namespace ZEROengine {
         bool transparent = false;
     };
 
-    class GraphicalWindow {
+    class GPUWindow {
     protected:
         WindowTransform m_window_transform;
         WindowSetting m_window_setting;
@@ -48,10 +48,10 @@ namespace ZEROengine {
         std::string window_title;
 
     public:
-        GraphicalWindow(const std::string &title, const WindowTransform &transform, const WindowSetting &setting, const WindowStyle &style);
-        virtual ~GraphicalWindow();
+        GPUWindow(const std::string &title, const WindowTransform &transform, const WindowSetting &setting, const WindowStyle &style);
+        virtual ~GPUWindow();
 
-        virtual void init(void *params) = 0;
+        virtual void init() = 0;
 
         virtual void setTitle(const std::string &title);
         virtual std::string getTitle() const;
@@ -86,7 +86,7 @@ namespace ZEROengine {
         virtual void notifyClosing();
 
         virtual void cleanup() {};
-    }; // class GraphicalWindow
+    }; // class GPUWindow
 } // namespace ZEROengine
 
-#endif // #ifndef ZEROENGINE_GRAPHICALWINDOW_H
+#endif // #ifndef ZEROENGINE_GPUWINDOW_H

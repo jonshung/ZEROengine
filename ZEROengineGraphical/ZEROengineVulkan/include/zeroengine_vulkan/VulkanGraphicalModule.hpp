@@ -3,9 +3,8 @@
 
 #include <memory>
 
-#include "zeroengine_graphical/GraphicalModule.hpp"
+#include "zeroengine_graphical/GPUModule.hpp"
 #include "zeroengine_vulkan/VulkanDevice.hpp"
-#include "zeroengine_vulkan/VulkanHardwareBuffer.hpp"
 #include "zeroengine_vulkan/VulkanWindow.hpp"
 
 namespace ZEROengine {
@@ -15,13 +14,13 @@ namespace ZEROengine {
      * - the Vulkan Device
      * 
      */
-    class VulkanGraphicalModule : public GraphicalModule {
+    class VulkanGraphicalModule : public GPUModule {
     private:
         std::shared_ptr<VulkanDevice> m_vulkan_device;
+        std::shared_ptr<VulkanWindow> m_render_window;
 
     // Main rendering window
     private:
-        std::shared_ptr<VulkanWindow> m_render_window;
 
     private:
         void recordAndSubmitStagingCommandBuffer();

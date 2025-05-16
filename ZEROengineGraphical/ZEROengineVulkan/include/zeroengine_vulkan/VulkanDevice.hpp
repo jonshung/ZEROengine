@@ -1,22 +1,28 @@
 #ifndef ZEROENGINE_VULKANDEVICE_H
 #define ZEROENGINE_VULKANDEVICE_H
 
-#include "vulkan/vulkan.hpp"
-#include "vk_mem_alloc.h"
-
+#include <memory>
 #include <vector>
 #include <string>
 #include <cstdint>
 #include <optional>
 #include <unordered_map>
+#include <list>
 
-#include "zeroengine_vulkan/VulkanDefines.hpp"
-#include "zeroengine_graphical/GraphicalDevice.hpp"
+#include "vulkan/vulkan.hpp"
+#include "vk_mem_alloc.h"
+
 #include "zeroengine_core/ZERODefines.hpp"
+#include "zeroengine_graphical/GPUDevice.hpp"
+#include "zeroengine_vulkan/VulkanQueueManager.hpp"
+#include "zeroengine_vulkan/VulkanDefines.hpp"
+#include "zeroengine_vulkan/VulkanWindow.hpp"
 
 namespace ZEROengine {
+    class VulkanWindow;
+
     #ifdef NDEBUG
-        const bool dbg_enable_validation_layers = false;
+        const bool const_dbg_enable_validation_layers = false;
     #else
         const bool const_dbg_enable_validation_layers = true;
     #endif
@@ -25,14 +31,7 @@ namespace ZEROengine {
      * @brief VulkanDevice holds essentials informations about the Vulkan runtime of the application. It also manage the hardware swapchain and auxillary resources.
      * 
      */
-    class VulkanDevice : public GraphicalDevice {
-    public:
-        struct SwapChainSupportDetails {
-            VkSurfaceCapabilitiesKHR capabilities;
-            std::vector<VkSurfaceFormatKHR> formats;
-            std::vector<VkPresentModeKHR> present_modes;
-        };
-
+    class VulkanDevice : public GPUDevice {
     private:
         VkInstance m_vk_instance;
         VkPhysicalDevice m_vk_physical_device;
@@ -40,34 +39,19 @@ namespace ZEROengine {
         
         VmaAllocator m_vma_alloc;
 
+        std::shared_ptr<VulkanQueueManager> m_vulkan_queue_manager;
+        
     // initialization and cleanup procedures
     public:
         static constexpr const char* getRequiredExtension();
 
         VulkanDevice();
-        void initVulkan();
+        void initVulkan(VulkanWindow* vulkan_window = nullptr);
 
-        void VKInit_initInstance();
-        void VKInit_initPhysicalDevice();
-        /**
-         * @brief This method should be called externally by either windowing system initialization process.
-         * 
-         * @param surface 
-         */
-        void VKInit_initLogicalDevice(const VkSurfaceKHR &surface);
+        void initInstance();
+        void initPhysicalDevice();
+        void initLogicalDevice(VulkanWindow* vulkan_window = nullptr);
         void cleanup() override;
-
-    private:
-        struct QueueFamilyIndices {
-            std::unordered_map<uint32_t, std::optional<uint32_t>> queue_indices;
-
-            bool exists() {
-                for(auto &[family, index] : queue_indices) {
-                    if(!index.has_value()) return false;
-                }
-                return true;
-            }
-        };
 
     // physical device extensions and valdiation layers support
     private:
@@ -79,27 +63,14 @@ namespace ZEROengine {
         void selectPhysicalDevice(const std::vector<VkPhysicalDevice>& devices_list);
         uint32_t evaluatePhysicalDeviceSuitability(const VkPhysicalDevice &phys_device);
         bool checkDeviceExtensionSupport(const VkPhysicalDevice &phys_device);
-
-        // queue families enumeration and selection
-        QueueFamilyIndices queryQueueFamily(const VkPhysicalDevice &phys_device, const std::vector<uint32_t> &query);
-        std::optional<uint32_t> queryPresentationQueueFamily_Surface(const VkSurfaceKHR &surface, const VkPhysicalDevice &phys_device);
-        
-    // basic wrapping interface for applications to communicate/synchronize with Vulkan per-frame rendering
-    private:
-        VkQueueInfo m_vk_graphics_queue;
-        VkQueueInfo m_vk_presentation_queue;
-
         
     public:
         VkInstance getInstance();
-        VkQueueInfo getGraphicalQueue();
-        VkQueueInfo getPresentationQueue();
-        
+        std::weak_ptr<VulkanQueueManager> getQueueManager();
+        std::weak_ptr<GraphicalContext> allocateGraphicalContext() override final;
 
         VkDevice getDevice();
         VkPhysicalDevice getPhysicalDevice();
-        SwapChainSupportDetails querySwapChainSupport(const VkPhysicalDevice &phys_device);
-        SwapChainSupportDetails querySwapChainSupport_Surface(const VkSurfaceKHR &surface, const VkPhysicalDevice &phys_device);
 
         ZEROResult allocateBuffer() override;
         ZEROResult allocateTexture() override;

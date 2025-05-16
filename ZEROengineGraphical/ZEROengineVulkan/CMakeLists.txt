@@ -10,12 +10,13 @@ find_package(X11 REQUIRED)
 
 set(ZEROengineVulkan_Sources
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VmaUsage.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanBuffer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanCommandBuffer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanContext.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanDevice.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanGraphicalModule.cpp
-    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanHardwareBuffer.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanPipelineManager.cpp
+    ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanSyncPrimitives.cpp
     ${CMAKE_CURRENT_SOURCE_DIR}/src/VulkanWindow.cpp
 )
 

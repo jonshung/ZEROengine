@@ -3,15 +3,15 @@
 
 #include <memory>
 
-#include "zeroengine_graphical/GraphicalModule.hpp"
+#include "zeroengine_graphical/GPUModule.hpp"
 
 namespace ZEROengine {
     class ZEROcore {
     private:
-        std::shared_ptr<GraphicalModule> m_graphical_module;
+        std::shared_ptr<GPUModule> m_graphical_module;
 
     public:
-        std::shared_ptr<GraphicalModule> getGraphicalModule();
+        std::shared_ptr<GPUModule> getGraphicalModule();
 
     public:
         void cleanup();

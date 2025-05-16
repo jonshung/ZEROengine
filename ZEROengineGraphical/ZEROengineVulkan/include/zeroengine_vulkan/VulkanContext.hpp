@@ -4,8 +4,8 @@
 #include <memory>
 #include <cstdint>
 
-#include "zeroengine_graphical/GraphicalContext.hpp"
-#include "zeroengine_graphical/GraphicalCommandBuffer.hpp"
+#include "zeroengine_graphical/GPUContext.hpp"
+#include "zeroengine_graphical/GPUCommandBuffer.hpp"
 #include "vulkan/vulkan.hpp"
 
 namespace ZEROengine {
@@ -13,8 +13,12 @@ namespace ZEROengine {
     private:
         VkCommandBuffer m_primary_command_buffer;
         VkCommandPool m_primary_command_pool;
+        VkDevice m_vk_device;
+
+        const uint32_t m_queue_family;
 
     public:
+        VulkanGraphicalContext(const VkDevice& vk_device, const uint32_t &queue_family);
         void init() override final;
         void cleanup() override final;
 
@@ -24,6 +28,10 @@ namespace ZEROengine {
         
         void beginRecording() override final;
         void endRecording() override final;
+    
+    // prohibited methods
+    private:
+        VulkanGraphicalContext();
     }; // class VulkanGraphicalContext
 
     // class VulkanComputeContext : public ComputeContext {
